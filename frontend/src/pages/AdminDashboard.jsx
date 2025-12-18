@@ -1,28 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
-  const [products, setProducts] = useState([]);
-  const [orders, setOrders] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [stats, setStats] = useState({
-    totalProducts: 0,
-    totalOrders: 0,
-    totalUsers: 0,
-    totalRevenue: 0,
-  });
-
-  // Modal states
-  const [showProductModal, setShowProductModal] = useState(false);
-  const [editingProduct, setEditingProduct] = useState(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteItemId, setDeleteItemId] = useState(null);
-
-  const loadMockData = () => {
-    // Load products from localStorage or use mock data
+  
+  // Lazy initialization - load data only once on mount
+  const [products, setProducts] = useState(() => {
     const storedProducts = localStorage.getItem('admin_products');
-    const mockProducts = storedProducts ? JSON.parse(storedProducts) : [
+    return storedProducts ? JSON.parse(storedProducts) : [
       {
         id: '1',
         name: 'Wireless Headphones',
@@ -79,11 +64,11 @@ const AdminDashboard = () => {
         createdAt: '2025-12-05T10:00:00Z',
       },
     ];
-    setProducts(mockProducts);
+  });
 
-    // Load orders from localStorage or use mock data
+  const [orders, setOrders] = useState(() => {
     const storedOrders = JSON.parse(localStorage.getItem('ecommerce_orders') || '[]');
-    const mockOrders = storedOrders.length > 0 ? storedOrders.map((order, index) => ({
+    return storedOrders.length > 0 ? storedOrders.map((order, index) => ({
       ...order,
       id: order.orderId || `ORD-${index + 1}`,
       customerName: order.shippingInfo?.firstName + ' ' + order.shippingInfo?.lastName || 'Guest User',
@@ -155,10 +140,10 @@ const AdminDashboard = () => {
         },
       },
     ];
-    setOrders(mockOrders);
+  });
 
-    // Mock users data
-    const mockUsers = [
+  const [users, setUsers] = useState(() => {
+    return [
       {
         id: '1',
         name: 'John Doe',
@@ -220,24 +205,21 @@ const AdminDashboard = () => {
         status: 'inactive',
       },
     ];
-    setUsers(mockUsers);
-  };
+  });
 
-  // Load data on component mount
-  useEffect(() => {
-    loadMockData();
-  }, []);
+  // Modal states
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteItemId, setDeleteItemId] = useState(null);
 
-  // Calculate stats whenever data changes
-  useEffect(() => {
-    const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
-    setStats({
-      totalProducts: products.length,
-      totalOrders: orders.length,
-      totalUsers: users.length,
-      totalRevenue: totalRevenue,
-    });
-  }, [products, orders, users]);
+  // Memoize computed stats for performance
+  const stats = useMemo(() => ({
+    totalProducts: products.length,
+    totalOrders: orders.length,
+    totalUsers: users.length,
+    totalRevenue: orders.reduce((sum, order) => sum + order.total, 0),
+  }), [products, orders, users]);
 
   // Product CRUD operations
   const handleCreateProduct = (productData) => {
