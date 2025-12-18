@@ -77,6 +77,29 @@ const CartProvider = ({ children }) => {
     return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
 
+  const getTotalItems = () => {
+    return cart.reduce((total, item) => total + item.quantity, 0);
+  };
+
+  const getCartSubtotal = () => {
+    return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+  };
+
+  const calculateShipping = (subtotal) => {
+    return subtotal > 50 ? 0 : 10;
+  };
+
+  const calculateTax = (subtotal) => {
+    return subtotal * 0.1;
+  };
+
+  const getOrderTotal = () => {
+    const subtotal = getCartSubtotal();
+    const shipping = calculateShipping(subtotal);
+    const tax = calculateTax(subtotal);
+    return subtotal + shipping + tax;
+  };
+
   return (
     <CartContext.Provider
       value={{
@@ -86,6 +109,11 @@ const CartProvider = ({ children }) => {
         updateQuantity,
         clearCart,
         getCartTotal,
+        getTotalItems,
+        getCartSubtotal,
+        calculateShipping,
+        calculateTax,
+        getOrderTotal,
       }}
     >
       {children}

@@ -134,6 +134,20 @@ const findUserById = async (id) => {
 };
 
 /**
+ * Find user by email
+ */
+const findUserByEmail = async (email) => {
+  try {
+    const db = await getDB();
+    const user = db.data.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    return user; // Return null if not found (not an error for registration check)
+  } catch (error) {
+    console.error('Error finding user by email:', error);
+    throw new Error('Failed to find user');
+  }
+};
+
+/**
  * Add new user
  */
 const addUser = async (userData) => {
@@ -302,6 +316,7 @@ module.exports = {
   // Users
   findAllUsers,
   findUserById,
+  findUserByEmail,
   addUser,
   updateUser,
   deleteUser,

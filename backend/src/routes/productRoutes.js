@@ -1,20 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const productController = require('../controllers/productController');
+const { authenticate } = require('../middleware/authenticate');
+const { isAdmin } = require('../middleware/authorize');
 
-// GET all products
+// Public routes - anyone can view products
 router.get('/', productController.getAllProducts);
-
-// GET single product by ID
 router.get('/:id', productController.getProductById);
 
-// POST create new product
-router.post('/', productController.createProduct);
-
-// PUT update product
-router.put('/:id', productController.updateProduct);
-
-// DELETE product
-router.delete('/:id', productController.deleteProduct);
+// Protected routes - only admins can create, update, delete products
+router.post('/', authenticate, isAdmin, productController.createProduct);
+router.put('/:id', authenticate, isAdmin, productController.updateProduct);
+router.delete('/:id', authenticate, isAdmin, productController.deleteProduct);
 
 module.exports = router;

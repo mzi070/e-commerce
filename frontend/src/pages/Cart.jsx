@@ -197,9 +197,12 @@ const Cart = () => {
                 </div>
               )}
 
-              <button className="w-full px-6 py-3 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors mb-3">
+              <Link
+                to="/checkout"
+                className="block w-full px-6 py-3 bg-primary-600 text-white font-semibold rounded-lg hover:bg-primary-700 transition-colors mb-3 text-center"
+              >
                 Proceed to Checkout
-              </button>
+              </Link>
 
               <button
                 onClick={clearCart}
