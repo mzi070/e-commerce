@@ -1,14 +1,6 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+/* Tailwind CSS utilities are imported in index.css */
+/* Custom global styles can be added here if needed */
 
-.app {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
 
 .main-content {
   flex: 1;
