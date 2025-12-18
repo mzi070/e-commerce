@@ -142,7 +142,7 @@ const AdminDashboard = () => {
     ];
   });
 
-  const [users, setUsers] = useState(() => {
+  const [users, _setUsers] = useState(() => {
     return [
       {
         id: '1',
