@@ -19,6 +19,10 @@ dist-ssr/
 build/
 *.local
 
+# Database
+db.json
+backend/db.json
+
 # Editor directories and files
 .vscode/
 .idea/

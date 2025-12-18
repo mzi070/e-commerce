@@ -6,9 +6,10 @@ A modern full-stack e-commerce application built with React (Vite) and Node.js/E
 
 - **Frontend**: React with Vite for fast development
 - **Backend**: Node.js with Express REST API
-- **Database Ready**: MongoDB with Mongoose ODM
-- **State Management**: React Context API for cart management
+- **Database**: File-based storage with lowdb (JSON database)
+- **State Management**: React Context API for cart management with localStorage persistence
 - **Modern UI**: Responsive design with clean styling
+- **Cart Persistence**: Shopping cart survives page refreshes using localStorage
 
 ## 📁 Project Structure
 
@@ -42,7 +43,7 @@ e-commerce/
 
 - Node.js (v18 or higher)
 - npm or yarn
-- MongoDB (optional, for database functionality)
+- No database installation required (uses file-based storage)
 
 ### Frontend Setup
 
@@ -77,8 +78,27 @@ VITE_API_URL=http://localhost:3000/api
 ```
 PORT=3000
 NODE_ENV=development
-MONGODB_URI=mongodb://localhost:27017/ecommerce
 ```
+
+## 💾 Data Storage
+
+### Frontend - localStorage
+The shopping cart uses browser's localStorage to persist cart items:
+- Cart items are automatically saved as JSON
+- Cart state survives page refreshes
+- Includes error handling for browsers with localStorage disabled
+
+### Backend - lowdb
+The backend uses lowdb for file-based JSON storage:
+- Data stored in `backend/db.json`
+- No database server installation required
+- Includes sample products on first run
+- Async CRUD operations with error handling
+
+Collections:
+- **products**: Store product catalog
+- **users**: User accounts (future feature)
+- **orders**: Order history
 
 ## 📦 Available Scripts
 

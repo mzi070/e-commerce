@@ -1,9 +1,15 @@
-const Order = require('../models/Order');
+const {
+  findAllOrders,
+  findOrderById,
+  addOrder,
+  updateOrder,
+  deleteOrder,
+} = require('../utils/dbHelpers');
 
 // Get all orders
 exports.getAllOrders = async (req, res) => {
   try {
-    const orders = await Order.find().populate('items.product');
+    const orders = await findAllOrders();
     res.json(orders);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -13,12 +19,12 @@ exports.getAllOrders = async (req, res) => {
 // Get single order by ID
 exports.getOrderById = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id).populate('items.product');
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
-    }
+    const order = await findOrderById(req.params.id);
     res.json(order);
   } catch (error) {
+    if (error.message === 'Order not found') {
+      return res.status(404).json({ message: error.message });
+    }
     res.status(500).json({ message: error.message });
   }
 };
@@ -26,8 +32,7 @@ exports.getOrderById = async (req, res) => {
 // Create new order
 exports.createOrder = async (req, res) => {
   try {
-    const order = new Order(req.body);
-    const newOrder = await order.save();
+    const newOrder = await addOrder(req.body);
     res.status(201).json(newOrder);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -38,16 +43,12 @@ exports.createOrder = async (req, res) => {
 exports.updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const order = await Order.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true, runValidators: true }
-    );
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
-    }
+    const order = await updateOrder(req.params.id, { status });
     res.json(order);
   } catch (error) {
+    if (error.message === 'Order not found') {
+      return res.status(404).json({ message: error.message });
+    }
     res.status(400).json({ message: error.message });
   }
 };
@@ -55,12 +56,12 @@ exports.updateOrderStatus = async (req, res) => {
 // Delete order
 exports.deleteOrder = async (req, res) => {
   try {
-    const order = await Order.findByIdAndDelete(req.params.id);
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
-    }
+    await deleteOrder(req.params.id);
     res.json({ message: 'Order deleted successfully' });
   } catch (error) {
+    if (error.message === 'Order not found') {
+      return res.status(404).json({ message: error.message });
+    }
     res.status(500).json({ message: error.message });
   }
 };

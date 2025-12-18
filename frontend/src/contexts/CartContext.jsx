@@ -1,12 +1,43 @@
-import React, { createContext, useState } from 'react';
+import React, { createContext, useState, useEffect } from 'react';
 
 const CartContext = createContext();
 
 // Export context separately for the hook to use
 export { CartContext };
 
+// LocalStorage key
+const CART_STORAGE_KEY = 'ecommerce_cart';
+
+// Helper functions for localStorage
+const saveToLocalStorage = (cart) => {
+  try {
+    const cartJSON = JSON.stringify(cart);
+    localStorage.setItem(CART_STORAGE_KEY, cartJSON);
+  } catch (error) {
+    console.error('Failed to save cart to localStorage:', error);
+  }
+};
+
+const loadFromLocalStorage = () => {
+  try {
+    const cartJSON = localStorage.getItem(CART_STORAGE_KEY);
+    return cartJSON ? JSON.parse(cartJSON) : [];
+  } catch (error) {
+    console.error('Failed to load cart from localStorage:', error);
+    return [];
+  }
+};
+
 const CartProvider = ({ children }) => {
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(() => {
+    // Initialize cart from localStorage on first render
+    return loadFromLocalStorage();
+  });
+
+  // Save to localStorage whenever cart changes
+  useEffect(() => {
+    saveToLocalStorage(cart);
+  }, [cart]);
 
   const addToCart = (product) => {
     setCart((prevCart) => {
