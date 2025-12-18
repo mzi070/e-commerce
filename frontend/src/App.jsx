@@ -1,5 +1,5 @@
 import React from 'react';
-import { CartProvider } from './contexts/CartContext';
+import CartProvider from './contexts/CartContext';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import Home from './pages/Home';
