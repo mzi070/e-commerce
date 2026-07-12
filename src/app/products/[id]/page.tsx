@@ -1,13 +1,22 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import {
   getAllProductIds,
   getProductById,
+  getRelatedProducts,
 } from "@/lib/queries/products";
+import { getReviewsForProduct, getUserReviewForProduct } from "@/lib/queries/reviews";
+import { getCurrentUser } from "@/lib/auth/session";
+import { formatCategoryLabel, categoryToSlug } from "@/lib/categories";
+import { Breadcrumbs } from "@/components/layout/breadcrumbs";
+import { ImageGallery } from "@/components/products/image-gallery";
+import { ProductPrice } from "@/components/products/product-price";
 import { ProductPurchase } from "@/components/products/product-purchase";
+import { ProductCard } from "@/components/products/product-card";
+import { StarRating } from "@/components/products/star-rating";
+import { WishlistButton } from "@/components/products/wishlist-button";
+import { ReviewForm, ReviewsList } from "@/components/products/reviews-section";
 import { ProductJsonLd } from "@/components/seo/product-json-ld";
-import { formatCurrencyFromCents } from "@/lib/format";
 
 export const revalidate = 60;
 
@@ -49,45 +58,61 @@ export default async function ProductPage({ params }: ProductPageProps) {
     notFound();
   }
 
+  const user = await getCurrentUser();
+  const [reviews, related, userReview] = await Promise.all([
+    getReviewsForProduct(id),
+    getRelatedProducts(id, product.category),
+    user ? getUserReviewForProduct(user.id, id) : Promise.resolve(null),
+  ]);
+
   const image = product.images[0] ?? null;
 
   return (
     <>
       <ProductJsonLd product={product} />
-      <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
-          <div className="overflow-hidden rounded-lg border border-black/10 bg-zinc-100 dark:border-white/10 dark:bg-zinc-900">
-            <div className="relative aspect-square w-full">
-              {image ? (
-                <Image
-                  src={image}
-                  alt={product.title}
-                  fill
-                  priority
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                  className="object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-zinc-400">
-                  No image
-                </div>
-              )}
-            </div>
-          </div>
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+        <Breadcrumbs
+          items={[
+            { label: "Shop", href: "/shop" },
+            {
+              label: formatCategoryLabel(product.category),
+              href: `/categories/${categoryToSlug(product.category)}`,
+            },
+            { label: product.title },
+          ]}
+        />
+
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
+          <ImageGallery images={product.images} title={product.title} />
 
           <div className="flex flex-col gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-zinc-400">
-                {product.category} · SKU: {product.sku}
-              </p>
-              <h1 className="mt-1 text-3xl font-bold tracking-tight">
-                {product.title}
-              </h1>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-zinc-400">
+                  {formatCategoryLabel(product.category)} · SKU: {product.sku}
+                </p>
+                <h1 className="mt-1 text-3xl font-bold tracking-tight">
+                  {product.title}
+                </h1>
+              </div>
+              <WishlistButton productId={product.id} />
             </div>
 
-            <p className="text-2xl font-semibold">
-              {formatCurrencyFromCents(product.priceCents)}
-            </p>
+            {product.averageRating !== null && product.reviewCount > 0 && (
+              <div className="flex items-center gap-2">
+                <StarRating rating={product.averageRating} size="md" />
+                <span className="text-sm text-zinc-500">
+                  {product.averageRating.toFixed(1)} ({product.reviewCount}{" "}
+                  review{product.reviewCount === 1 ? "" : "s"})
+                </span>
+              </div>
+            )}
+
+            <ProductPrice
+              priceCents={product.priceCents}
+              compareAtPriceCents={product.compareAtPriceCents}
+              size="lg"
+            />
 
             <p
               className={`text-sm ${
@@ -95,7 +120,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               }`}
             >
               {product.stock > 0
-                ? `${product.stock} in stock`
+                ? `In stock (${product.stock} available)`
                 : "Currently sold out"}
             </p>
 
@@ -103,19 +128,48 @@ export default async function ProductPage({ params }: ProductPageProps) {
               {product.description}
             </p>
 
-            <div className="mt-2">
-              <ProductPurchase
-                meta={{
-                  productId: product.id,
-                  title: product.title,
-                  unitPriceCents: product.priceCents,
-                  image,
-                  stock: product.stock,
-                }}
-              />
-            </div>
+            <ProductPurchase
+              meta={{
+                productId: product.id,
+                title: product.title,
+                unitPriceCents: product.priceCents,
+                image,
+                stock: product.stock,
+              }}
+            />
           </div>
         </div>
+
+        {related.length > 0 && (
+          <section className="mt-16">
+            <h2 className="mb-4 text-xl font-bold">Related products</h2>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {related.map((item) => (
+                <ProductCard key={item.id} product={item} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section className="mt-16">
+          <h2 className="mb-4 text-xl font-bold">Customer reviews</h2>
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+            {user ? (
+              <ReviewForm productId={id} existingReview={userReview} />
+            ) : (
+              <p className="text-sm text-zinc-500">
+                <a href="/login" className="font-medium text-indigo-600 hover:underline">
+                  Sign in
+                </a>{" "}
+                to write a review.
+              </p>
+            )}
+            <ReviewsList
+              reviews={reviews}
+              canModerate={user?.role === "ADMIN"}
+            />
+          </div>
+        </section>
       </div>
     </>
   );

@@ -17,6 +17,8 @@ interface SeedProduct {
   title: string;
   description: string;
   priceCents: number;
+  compareAtPriceCents?: number;
+  featured?: boolean;
   stock: number;
   category: string;
   images: string[];
@@ -29,6 +31,8 @@ const PRODUCTS: SeedProduct[] = [
     description:
       "A soft, breathable 100% cotton t-shirt that goes with everything. Pre-shrunk and built to last.",
     priceCents: 2499,
+    compareAtPriceCents: 2999,
+    featured: true,
     stock: 120,
     category: "apparel",
     images: ["https://picsum.photos/seed/tshirt/600/600"],
@@ -39,6 +43,8 @@ const PRODUCTS: SeedProduct[] = [
     description:
       "Cozy midweight fleece hoodie with a kangaroo pocket and adjustable drawstring hood.",
     priceCents: 5450,
+    compareAtPriceCents: 6999,
+    featured: true,
     stock: 60,
     category: "apparel",
     images: ["https://picsum.photos/seed/hoodie/600/600"],
@@ -49,6 +55,7 @@ const PRODUCTS: SeedProduct[] = [
     description:
       "Dishwasher- and microwave-safe ceramic mug with a comfortable handle. Perfect for your morning brew.",
     priceCents: 1400,
+    featured: true,
     stock: 200,
     category: "home",
     images: ["https://picsum.photos/seed/mug/600/600"],
@@ -59,6 +66,7 @@ const PRODUCTS: SeedProduct[] = [
     description:
       "Double-walled stainless steel bottle that keeps drinks cold for 24 hours or hot for 12.",
     priceCents: 3295,
+    compareAtPriceCents: 3999,
     stock: 0,
     category: "home",
     images: ["https://picsum.photos/seed/bottle/600/600"],
@@ -120,11 +128,17 @@ async function main(): Promise<void> {
         title: product.title,
         description: product.description,
         priceCents: product.priceCents,
+        compareAtPriceCents: product.compareAtPriceCents ?? null,
+        featured: product.featured ?? false,
         stock: product.stock,
         category: product.category,
         images: product.images,
       },
-      create: product,
+      create: {
+        ...product,
+        compareAtPriceCents: product.compareAtPriceCents ?? null,
+        featured: product.featured ?? false,
+      },
     });
   }
 

@@ -12,6 +12,7 @@ import { fail, ok, toFieldErrors, type ActionResult } from "@/lib/action-result"
 
 function revalidateProductViews(productId?: string): void {
   revalidatePath("/");
+  revalidatePath("/shop");
   revalidatePath("/admin/products");
   if (productId) {
     revalidatePath(`/products/${productId}`);
@@ -28,7 +29,7 @@ export async function createProduct(
     return fail("Please fix the errors below.", toFieldErrors(parsed.error));
   }
 
-  const { sku, title, description, price, stock, category, images } =
+  const { sku, title, description, price, compareAtPrice, featured, stock, category, images } =
     parsed.data;
 
   const existing = await prisma.product.findUnique({
@@ -47,6 +48,8 @@ export async function createProduct(
       title,
       description,
       priceCents: price,
+      compareAtPriceCents: compareAtPrice ?? null,
+      featured: featured ?? false,
       stock,
       category,
       images,
@@ -66,7 +69,7 @@ export async function updateProduct(input: unknown): Promise<ActionResult> {
     return fail("Please fix the errors below.", toFieldErrors(parsed.error));
   }
 
-  const { id, price, ...rest } = parsed.data;
+  const { id, price, compareAtPrice, featured, ...rest } = parsed.data;
 
   if (rest.sku !== undefined) {
     const duplicate = await prisma.product.findFirst({
@@ -85,6 +88,10 @@ export async function updateProduct(input: unknown): Promise<ActionResult> {
     data: {
       ...rest,
       ...(price !== undefined ? { priceCents: price } : {}),
+      ...(compareAtPrice !== undefined
+        ? { compareAtPriceCents: compareAtPrice }
+        : {}),
+      ...(featured !== undefined ? { featured } : {}),
     },
   });
   if (updated.count === 0) {

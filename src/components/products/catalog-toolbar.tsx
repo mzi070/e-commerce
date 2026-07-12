@@ -4,17 +4,23 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useTransition, type FormEvent } from "react";
 
 interface CatalogToolbarProps {
+  basePath: string;
   categories: string[];
   currentCategory?: string;
   currentSort: string;
   currentQuery: string;
+  currentInStock?: boolean;
+  currentDeals?: boolean;
 }
 
 export function CatalogToolbar({
+  basePath,
   categories,
   currentCategory,
   currentSort,
   currentQuery,
+  currentInStock,
+  currentDeals,
 }: CatalogToolbarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -30,11 +36,13 @@ export function CatalogToolbar({
           params.set(key, value);
         }
       }
+      params.delete("page");
       startTransition(() => {
-        router.push(`/?${params.toString()}`);
+        const query = params.toString();
+        router.push(query ? `${basePath}?${query}` : basePath);
       });
     },
-    [router, searchParams],
+    [router, searchParams, basePath],
   );
 
   function onSearch(event: FormEvent<HTMLFormElement>): void {
@@ -44,7 +52,7 @@ export function CatalogToolbar({
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-950 sm:flex-row sm:items-end">
+    <div className="flex flex-col gap-4 rounded-lg border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-950 lg:flex-row lg:items-end">
       <form onSubmit={onSearch} className="flex flex-1 gap-2">
         <label className="sr-only" htmlFor="catalog-search">
           Search products
@@ -55,7 +63,7 @@ export function CatalogToolbar({
           type="search"
           defaultValue={currentQuery}
           placeholder="Search by name, SKU, or description"
-          className="flex-1 rounded-md border border-black/15 bg-transparent px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-white/15"
+          className="flex-1 rounded-md border border-black/15 bg-transparent px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-white/15"
         />
         <button
           type="submit"
@@ -94,7 +102,31 @@ export function CatalogToolbar({
             <option value="newest">Newest</option>
             <option value="price-asc">Price: low to high</option>
             <option value="price-desc">Price: high to low</option>
+            <option value="rating">Top rated</option>
+            <option value="popular">Most reviewed</option>
           </select>
+        </label>
+
+        <label className="flex items-end gap-2 pb-2 text-sm">
+          <input
+            type="checkbox"
+            checked={!!currentInStock}
+            onChange={(event) =>
+              updateParams({ inStock: event.target.checked ? "1" : undefined })
+            }
+          />
+          In stock only
+        </label>
+
+        <label className="flex items-end gap-2 pb-2 text-sm">
+          <input
+            type="checkbox"
+            checked={!!currentDeals}
+            onChange={(event) =>
+              updateParams({ deals: event.target.checked ? "1" : undefined })
+            }
+          />
+          Deals only
         </label>
       </div>
 

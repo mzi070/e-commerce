@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { logout } from "@/actions/auth";
 import { useCart } from "@/components/providers/cart-provider";
+import { useWishlist } from "@/components/providers/wishlist-provider";
+import { HeaderSearch } from "@/components/layout/header-search";
 import type { Role } from "@/generated/prisma/enums";
 
 interface HeaderProps {
@@ -11,36 +13,67 @@ interface HeaderProps {
 
 export function Header({ user }: HeaderProps) {
   const { itemCount, openCart } = useCart();
+  const { count: wishlistCount } = useWishlist();
 
   return (
-    <header className="sticky top-0 z-30 border-b border-black/10 bg-white/80 backdrop-blur dark:border-white/10 dark:bg-black/70">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-        <Link href="/" className="text-lg font-semibold tracking-tight">
+    <header className="sticky top-0 z-30 border-b border-black/10 bg-white/90 backdrop-blur dark:border-white/10 dark:bg-black/80">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
+        <Link href="/" className="shrink-0 text-lg font-semibold tracking-tight">
           Next<span className="text-indigo-600">Shop</span>
         </Link>
 
-        <nav className="flex items-center gap-4 text-sm">
-          <Link href="/" className="hidden text-zinc-600 hover:text-black dark:text-zinc-300 dark:hover:text-white sm:inline">
+        <HeaderSearch />
+
+        <nav className="flex shrink-0 items-center gap-3 text-sm">
+          <Link
+            href="/shop"
+            className="hidden text-zinc-600 hover:text-black dark:text-zinc-300 dark:hover:text-white lg:inline"
+          >
             Shop
+          </Link>
+
+          <Link
+            href="/wishlist"
+            className="relative rounded-md p-2 text-zinc-700 hover:bg-black/5 dark:text-zinc-200 dark:hover:bg-white/10"
+            aria-label="Wishlist"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className="h-6 w-6"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"
+              />
+            </svg>
+            {wishlistCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-semibold text-white">
+                {wishlistCount}
+              </span>
+            )}
           </Link>
 
           {user ? (
             <>
               <Link
                 href="/dashboard"
-                className="text-zinc-600 hover:text-black dark:text-zinc-300 dark:hover:text-white"
+                className="hidden text-zinc-600 hover:text-black dark:text-zinc-300 dark:hover:text-white sm:inline"
               >
                 Orders
               </Link>
               {user.role === "ADMIN" && (
                 <Link
                   href="/admin/products"
-                  className="rounded-md bg-indigo-50 px-2 py-1 font-medium text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950 dark:text-indigo-300"
+                  className="hidden rounded-md bg-indigo-50 px-2 py-1 font-medium text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950 dark:text-indigo-300 sm:inline"
                 >
                   Admin
                 </Link>
               )}
-              <span className="hidden text-zinc-400 md:inline">{user.email}</span>
               <form action={logout}>
                 <button
                   type="submit"
@@ -52,7 +85,10 @@ export function Header({ user }: HeaderProps) {
             </>
           ) : (
             <>
-              <Link href="/login" className="text-zinc-600 hover:text-black dark:text-zinc-300 dark:hover:text-white">
+              <Link
+                href="/login"
+                className="text-zinc-600 hover:text-black dark:text-zinc-300 dark:hover:text-white"
+              >
                 Login
               </Link>
               <Link

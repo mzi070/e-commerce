@@ -3,7 +3,9 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { getCurrentUser } from "@/lib/auth/session";
 import { CartProvider } from "@/components/providers/cart-provider";
+import { WishlistProvider } from "@/components/providers/wishlist-provider";
 import { Header } from "@/components/layout/header";
+import { SiteFooter } from "@/components/layout/site-footer";
 import { CartDrawer } from "@/components/cart/cart-drawer";
 
 const geistSans = Geist({
@@ -49,14 +51,14 @@ export default async function RootLayout({
     >
       <body className="flex min-h-full flex-col bg-zinc-50 text-zinc-900 dark:bg-black dark:text-zinc-100">
         <CartProvider>
-          <Header
-            user={user ? { email: user.email, role: user.role } : null}
-          />
-          <main className="flex-1">{children}</main>
-          <CartDrawer />
-          <footer className="border-t border-black/10 py-6 text-center text-sm text-zinc-500 dark:border-white/10">
-            NextShop — modern e-commerce storefront.
-          </footer>
+          <WishlistProvider>
+            <Header
+              user={user ? { email: user.email, role: user.role } : null}
+            />
+            <main className="flex-1">{children}</main>
+            <CartDrawer />
+            <SiteFooter isAuthenticated={!!user} />
+          </WishlistProvider>
         </CartProvider>
       </body>
     </html>
