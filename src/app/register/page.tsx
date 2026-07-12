@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { RegisterForm } from "@/components/auth/register-form";
+import { sanitizeCallbackUrl } from "@/lib/safe-redirect";
 
 export const metadata = { title: "Create account" };
 
@@ -20,7 +21,7 @@ export default async function RegisterPage({
   return (
     <div className="mx-auto flex max-w-sm flex-col px-4 py-16">
       <h1 className="mb-6 text-2xl font-bold">Create your account</h1>
-      <RegisterForm callbackUrl={callbackUrl ?? "/"} />
+      <RegisterForm callbackUrl={sanitizeCallbackUrl(callbackUrl)} />
     </div>
   );
 }

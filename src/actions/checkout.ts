@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { requireUser } from "@/lib/auth/session";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { fail, ok, type ActionResult } from "@/lib/action-result";
+
+const CHECKOUT_RATE_LIMIT = { limit: 5, windowMs: 60_000 } as const;
 
 export interface CheckoutSuccess {
   orderId: string;
@@ -84,8 +87,12 @@ function placeOrderTransaction(
           data: { stock: { decrement: item.quantity } },
         });
         if (decremented.count === 0) {
+          const current = await tx.product.findUnique({
+            where: { id: product.id },
+            select: { stock: true, title: true },
+          });
           throw new CheckoutError(
-            `Insufficient stock for "${product.title}". Only ${product.stock} left.`,
+            `Insufficient stock for "${current?.title ?? product.title}". Only ${current?.stock ?? 0} left.`,
           );
         }
 
@@ -120,11 +127,20 @@ function placeOrderTransaction(
 export async function checkout(): Promise<ActionResult<CheckoutSuccess>> {
   const user = await requireUser();
 
+  const rate = await enforceRateLimit(
+    "checkout",
+    CHECKOUT_RATE_LIMIT.limit,
+    CHECKOUT_RATE_LIMIT.windowMs,
+  );
+  if (!rate.ok) {
+    return fail("Too many checkout attempts. Please wait a moment and try again.");
+  }
+
   for (let attempt = 0; attempt < MAX_SERIALIZATION_RETRIES; attempt += 1) {
     try {
       const order = await placeOrderTransaction(user.id);
 
-      revalidatePath("/cart");
+      revalidatePath("/", "layout");
       revalidatePath("/checkout");
       revalidatePath("/dashboard");
 

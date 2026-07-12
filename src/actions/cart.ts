@@ -22,7 +22,7 @@ async function getOrCreateCartId(userId: string): Promise<string> {
 }
 
 function revalidateCartViews(): void {
-  revalidatePath("/cart");
+  revalidatePath("/", "layout");
   revalidatePath("/checkout");
 }
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { register } from "@/actions/auth";
 import type { FieldErrors } from "@/lib/action-result";
+import { sanitizeCallbackUrl } from "@/lib/safe-redirect";
 
 export function RegisterForm({ callbackUrl }: { callbackUrl: string }) {
   const router = useRouter();
@@ -30,7 +31,7 @@ export function RegisterForm({ callbackUrl }: { callbackUrl: string }) {
         setFieldErrors(result.fieldErrors ?? {});
         return;
       }
-      router.push(callbackUrl || "/");
+      router.push(sanitizeCallbackUrl(callbackUrl));
       router.refresh();
     });
   }

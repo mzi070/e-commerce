@@ -16,6 +16,7 @@ import {
 } from "@/actions/cart";
 import type { ActionResult } from "@/lib/action-result";
 import type { CartLineItem } from "@/lib/queries/cart";
+import { formatCents, multiplyMoney, parseMoneyToCents } from "@/lib/money";
 
 /** Minimal product info needed to render an optimistic cart line. */
 export interface AddToCartMeta {
@@ -32,7 +33,7 @@ type OptimisticAction =
   | { type: "remove"; productId: string };
 
 function lineTotalOf(unitPrice: string, quantity: number): string {
-  return (Number(unitPrice) * quantity).toFixed(2);
+  return multiplyMoney(unitPrice, quantity);
 }
 
 function cartReducer(
@@ -140,9 +141,12 @@ export function CartProvider({
     (count, item) => count + item.quantity,
     0,
   );
-  const subtotal = optimisticItems
-    .reduce((sum, item) => sum + Number(item.lineTotal), 0)
-    .toFixed(2);
+  const subtotal = formatCents(
+    optimisticItems.reduce(
+      (sum, item) => sum + parseMoneyToCents(item.lineTotal),
+      0,
+    ),
+  );
 
   function run(
     optimistic: OptimisticAction,

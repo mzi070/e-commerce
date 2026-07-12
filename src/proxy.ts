@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { Role } from "@/generated/prisma/enums";
 import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/auth/jwt";
+import { sanitizeCallbackUrl } from "@/lib/safe-redirect";
 
 /** Routes that require any authenticated user. */
 const AUTH_PREFIXES = ["/checkout", "/dashboard"];
@@ -17,7 +17,10 @@ function redirectToLogin(request: NextRequest): NextResponse {
   const loginUrl = new URL("/login", request.url);
   loginUrl.searchParams.set(
     "callbackUrl",
-    request.nextUrl.pathname + request.nextUrl.search,
+    sanitizeCallbackUrl(
+      request.nextUrl.pathname + request.nextUrl.search,
+      "/",
+    ),
   );
   return NextResponse.redirect(loginUrl);
 }
@@ -28,14 +31,11 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   const session = await verifySessionToken(token);
 
-  // Admin-only routes: must be authenticated AND have the ADMIN role.
+  // Admin-only routes: require a valid session. Role is enforced authoritatively
+  // in admin layouts/actions via requireAdmin() (fresh DB lookup).
   if (matchesPrefix(pathname, ADMIN_PREFIXES)) {
     if (!session) {
       return redirectToLogin(request);
-    }
-    if (session.role !== Role.ADMIN) {
-      // Authenticated but not authorized -> send to home page.
-      return NextResponse.redirect(new URL("/", request.url));
     }
     return NextResponse.next();
   }

@@ -5,7 +5,10 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { createSession, destroySession } from "@/lib/auth/session";
 import { loginSchema, registerSchema } from "@/lib/validations/auth";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { fail, ok, toFieldErrors, type ActionResult } from "@/lib/action-result";
+
+const AUTH_RATE_LIMIT = { limit: 10, windowMs: 60_000 } as const;
 
 // A valid bcrypt hash (of a random string) used as a decoy so that login
 // attempts for non-existent emails still perform a full bcrypt comparison,
@@ -14,6 +17,15 @@ const DECOY_PASSWORD_HASH =
   "$2b$12$1cyXnZkFYMi/2f5gCCnW7uMEIfwrkS7C8z6wt9ZoRfcNlKmUEbN9K";
 
 export async function register(input: unknown): Promise<ActionResult> {
+  const rate = await enforceRateLimit(
+    "register",
+    AUTH_RATE_LIMIT.limit,
+    AUTH_RATE_LIMIT.windowMs,
+  );
+  if (!rate.ok) {
+    return fail("Too many attempts. Please wait a moment and try again.");
+  }
+
   const parsed = registerSchema.safeParse(input);
   if (!parsed.success) {
     return fail("Please fix the errors below.", toFieldErrors(parsed.error));
@@ -26,9 +38,10 @@ export async function register(input: unknown): Promise<ActionResult> {
     select: { id: true },
   });
   if (existing) {
-    return fail("An account with this email already exists.", {
-      email: ["Email is already registered."],
-    });
+    // Generic message to avoid revealing whether the email is registered.
+    return fail(
+      "Unable to create account. If you already have an account, try signing in.",
+    );
   }
 
   const passwordHash = await hashPassword(password);
@@ -49,6 +62,15 @@ export async function register(input: unknown): Promise<ActionResult> {
 }
 
 export async function login(input: unknown): Promise<ActionResult> {
+  const rate = await enforceRateLimit(
+    "login",
+    AUTH_RATE_LIMIT.limit,
+    AUTH_RATE_LIMIT.windowMs,
+  );
+  if (!rate.ok) {
+    return fail("Too many attempts. Please wait a moment and try again.");
+  }
+
   const parsed = loginSchema.safeParse(input);
   if (!parsed.success) {
     return fail("Please fix the errors below.", toFieldErrors(parsed.error));

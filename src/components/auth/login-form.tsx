@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { login } from "@/actions/auth";
 import type { FieldErrors } from "@/lib/action-result";
+import { sanitizeCallbackUrl } from "@/lib/safe-redirect";
 
 export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
   const router = useRouter();
@@ -28,7 +29,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
         setFieldErrors(result.fieldErrors ?? {});
         return;
       }
-      router.push(callbackUrl || "/");
+      router.push(sanitizeCallbackUrl(callbackUrl));
       router.refresh();
     });
   }

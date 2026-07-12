@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { productImageUrlSchema } from "@/lib/validations/image-url";
 
 /** Money value with at most two decimal places, tolerant of float rounding. */
 const hasAtMostTwoDecimals = (value: number): boolean =>
@@ -22,11 +23,11 @@ export const productBaseSchema = z.object({
   description: z.string().trim().min(1, "Description is required.").max(5000),
   price: priceSchema,
   stock: stockSchema,
-  images: z.array(z.url("Each image must be a valid URL.")).max(10),
+  images: z.array(productImageUrlSchema).max(10),
 });
 
 export const createProductSchema = productBaseSchema.extend({
-  images: z.array(z.url("Each image must be a valid URL.")).max(10).default([]),
+  images: z.array(productImageUrlSchema).max(10).default([]),
 });
 
 export const updateProductSchema = productBaseSchema
