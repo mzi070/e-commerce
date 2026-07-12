@@ -1,70 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
 import Link from "next/link";
-import { createSwipeCheckout } from "@/actions/swipe-checkout";
 import { useCart } from "@/components/providers/cart-provider";
-import { SwipezPaymentForm } from "@/components/checkout/swipez-payment-form";
 import { formatCurrencyFromCents } from "@/lib/format";
-import type { SwipeCheckoutPayload } from "@/actions/swipe-checkout";
 
-interface CheckoutClientProps {
-  flatShippingCents: number;
-  collectShipping: boolean;
-}
-
-export function CheckoutClient({
-  flatShippingCents,
-  collectShipping,
-}: CheckoutClientProps) {
-  const { items, itemCount, subtotal, getCheckoutLines, isHydrated } =
-    useCart();
-  const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  const [redirect, setRedirect] = useState<SwipeCheckoutPayload | null>(null);
-
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [address, setAddress] = useState("");
-  const [city, setCity] = useState("");
-  const [state, setState] = useState("");
-  const [postalCode, setPostalCode] = useState("");
-
-  function payWithSwipe(): void {
-    setError(null);
-    const lines = getCheckoutLines();
-    startTransition(async () => {
-      const result = await createSwipeCheckout({
-        lines,
-        payer: {
-          name,
-          phone,
-          email,
-          ...(collectShipping
-            ? { address, city, state, postalCode }
-            : {}),
-        },
-      });
-      if (!result.success) {
-        setError(result.error);
-        return;
-      }
-      setRedirect(result.data);
-    });
-  }
-
-  if (redirect) {
-    return (
-      <div className="text-center">
-        <p className="text-sm text-zinc-500">Redirecting to Swipez…</p>
-        <SwipezPaymentForm
-          actionUrl={redirect.actionUrl}
-          fields={redirect.fields}
-        />
-      </div>
-    );
-  }
+export function CheckoutClient() {
+  const { items, itemCount, isHydrated } = useCart();
 
   if (!isHydrated) {
     return (
@@ -95,13 +36,10 @@ export function CheckoutClient({
     (sum, item) => sum + item.lineTotalCents,
     0,
   );
-  const totalCents = subtotalCents + flatShippingCents;
-  const inputClass =
-    "w-full rounded-md border border-black/15 bg-transparent px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-white/15";
 
   return (
-    <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-      <div className="lg:col-span-2 space-y-6">
+    <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+      <div className="md:col-span-2">
         <ul className="divide-y divide-black/10 rounded-lg border border-black/10 dark:divide-white/10 dark:border-white/10">
           {items.map((item) => (
             <li
@@ -121,129 +59,32 @@ export function CheckoutClient({
             </li>
           ))}
         </ul>
-
-        <fieldset className="rounded-lg border border-black/10 p-5 dark:border-white/10">
-          <legend className="px-1 text-sm font-semibold">Contact details</legend>
-          <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-              <span className="font-medium">Full name</span>
-              <input
-                name="name"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className={inputClass}
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Phone</span>
-              <input
-                name="phone"
-                type="tel"
-                required
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className={inputClass}
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Email</span>
-              <input
-                name="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={inputClass}
-              />
-            </label>
-            {collectShipping && (
-              <>
-                <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-                  <span className="font-medium">Address</span>
-                  <input
-                    name="address"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    className={inputClass}
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-sm">
-                  <span className="font-medium">City</span>
-                  <input
-                    name="city"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    className={inputClass}
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-sm">
-                  <span className="font-medium">State</span>
-                  <input
-                    name="state"
-                    value={state}
-                    onChange={(e) => setState(e.target.value)}
-                    className={inputClass}
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-sm">
-                  <span className="font-medium">Postal code</span>
-                  <input
-                    name="postalCode"
-                    value={postalCode}
-                    onChange={(e) => setPostalCode(e.target.value)}
-                    className={inputClass}
-                  />
-                </label>
-              </>
-            )}
-          </div>
-        </fieldset>
       </div>
 
       <div className="h-fit rounded-lg border border-black/10 p-5 dark:border-white/10">
-        <h2 className="mb-4 text-lg font-semibold">Summary</h2>
+        <h2 className="mb-4 text-lg font-semibold">Order summary</h2>
         <div className="flex items-center justify-between border-b border-black/10 pb-3 text-sm dark:border-white/10">
           <span className="text-zinc-500">Items</span>
           <span>{itemCount}</span>
         </div>
-        <div className="flex items-center justify-between py-3 text-sm">
-          <span className="text-zinc-500">Subtotal</span>
-          <span>${subtotal}</span>
-        </div>
-        {flatShippingCents > 0 && (
-          <div className="flex items-center justify-between border-b border-black/10 pb-3 text-sm dark:border-white/10">
-            <span className="text-zinc-500">Shipping</span>
-            <span>{formatCurrencyFromCents(flatShippingCents)}</span>
-          </div>
-        )}
         <div className="flex items-center justify-between py-3">
-          <span className="text-zinc-500">Total</span>
+          <span className="text-zinc-500">Subtotal</span>
           <span className="text-xl font-bold">
-            {formatCurrencyFromCents(totalCents)}
+            {formatCurrencyFromCents(subtotalCents)}
           </span>
         </div>
 
-        {error && (
-          <p
-            role="alert"
-            className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300"
-          >
-            {error}
-          </p>
-        )}
+        <div className="rounded-md border border-dashed border-amber-300 bg-amber-50 px-3 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+          Payment is not connected yet. Review your cart here — checkout will be
+          enabled when you add your payment provider.
+        </div>
 
-        <button
-          type="button"
-          onClick={payWithSwipe}
-          disabled={isPending}
-          className="w-full rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+        <Link
+          href="/"
+          className="mt-4 block w-full rounded-md border border-black/15 px-4 py-2.5 text-center text-sm font-medium hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
         >
-          {isPending ? "Preparing payment…" : "Pay with Swipez"}
-        </button>
-        <p className="mt-3 text-center text-xs text-zinc-500">
-          Secure checkout powered by Swipez. No account required.
-        </p>
+          Continue shopping
+        </Link>
       </div>
     </div>
   );

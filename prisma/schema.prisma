@@ -101,27 +101,8 @@ model CartItem {
   @@index([productId])
 }
 
-/// Pending checkout stored server-side until Swipez webhook confirms payment.
-model PaymentReference {
-  referenceNo     String   @id
-  userId          String?
-  payerName       String
-  payerPhone      String
-  payerEmail      String
-  payerAddress    String?
-  payerCity       String?
-  payerState      String?
-  payerPostalCode String?
-  /// Cart lines: [{ productId, quantity }]
-  lines           Json
-  totalCents      Int
-  shippingCents   Int      @default(0)
-  createdAt       DateTime @default(now())
-}
-
 model Order {
   id     String      @id @default(cuid())
-  /// Optional for guest checkout.
   userId String?
   user   User?       @relation(fields: [userId], references: [id])
   status OrderStatus @default(PENDING)
@@ -130,13 +111,6 @@ model Order {
   totalCents Int
 
   paymentStatus PaymentStatus @default(PENDING)
-
-  /// Merchant reference sent to Swipez — unique for idempotent fulfillment.
-  paymentReferenceNo String? @unique
-  /// Swipez transaction id after successful payment.
-  swipeTransactionId String? @unique
-  /// Webhook delivery id for idempotent fulfillment.
-  swipeWebhookId     String? @unique
 
   guestEmail      String?
   shippingAddress Json?

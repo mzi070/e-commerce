@@ -54,6 +54,7 @@ function serializeOrder(order: OrderWithRelations): OrderView {
   };
 }
 
+/** Orders belonging to a single customer, newest first. */
 export async function getOrdersForUser(userId: string): Promise<OrderView[]> {
   const orders = await prisma.order.findMany({
     where: { userId },
@@ -63,89 +64,13 @@ export async function getOrdersForUser(userId: string): Promise<OrderView[]> {
   return orders.map(serializeOrder);
 }
 
+/** All orders across the store (admin), newest first. */
 export async function getAllOrders(): Promise<OrderView[]> {
   const orders = await prisma.order.findMany({
     orderBy: { createdAt: "desc" },
     include: { items: true, user: { select: { email: true } } },
   });
   return orders.map(serializeOrder);
-}
-
-export interface CreateOrderItemInput {
-  productId: string;
-  productTitle: string;
-  productSku: string;
-  priceAtPurchaseCents: number;
-  quantity: number;
-}
-
-export interface CreateOrderInput {
-  userId?: string | null;
-  guestEmail?: string | null;
-  totalCents: number;
-  paymentReferenceNo: string;
-  swipeTransactionId: string;
-  swipeWebhookId: string;
-  shippingAddress?: Prisma.InputJsonValue;
-  items: CreateOrderItemInput[];
-}
-
-/** Idempotent order creation keyed by paymentReferenceNo. */
-export async function createOrder(input: CreateOrderInput): Promise<OrderView> {
-  const existing = await prisma.order.findUnique({
-    where: { paymentReferenceNo: input.paymentReferenceNo },
-    include: { items: true, user: { select: { email: true } } },
-  });
-  if (existing) {
-    return serializeOrder(existing);
-  }
-
-  const order = await prisma.$transaction(async (tx) => {
-    for (const item of input.items) {
-      const decremented = await tx.product.updateMany({
-        where: { id: item.productId, stock: { gte: item.quantity } },
-        data: { stock: { decrement: item.quantity } },
-      });
-      if (decremented.count === 0) {
-        throw new Error(`Insufficient stock for ${item.productSku}.`);
-      }
-    }
-
-    return tx.order.create({
-      data: {
-        userId: input.userId ?? null,
-        guestEmail: input.guestEmail ?? null,
-        totalCents: input.totalCents,
-        paymentStatus: "PAID",
-        paymentReferenceNo: input.paymentReferenceNo,
-        swipeTransactionId: input.swipeTransactionId,
-        swipeWebhookId: input.swipeWebhookId,
-        shippingAddress: input.shippingAddress,
-        items: {
-          create: input.items.map((item) => ({
-            productId: item.productId,
-            productTitle: item.productTitle,
-            productSku: item.productSku,
-            priceAtPurchaseCents: item.priceAtPurchaseCents,
-            quantity: item.quantity,
-          })),
-        },
-      },
-      include: { items: true, user: { select: { email: true } } },
-    });
-  });
-
-  return serializeOrder(order);
-}
-
-export async function getOrderByPaymentReference(
-  referenceNo: string,
-): Promise<OrderView | null> {
-  const order = await prisma.order.findUnique({
-    where: { paymentReferenceNo: referenceNo },
-    include: { items: true, user: { select: { email: true } } },
-  });
-  return order ? serializeOrder(order) : null;
 }
 
 export function orderTotalDisplay(order: OrderView): string {

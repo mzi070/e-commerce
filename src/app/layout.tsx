@@ -55,7 +55,7 @@ export default async function RootLayout({
           <main className="flex-1">{children}</main>
           <CartDrawer />
           <footer className="border-t border-black/10 py-6 text-center text-sm text-zinc-500 dark:border-white/10">
-            NextShop — secure checkout with Swipez.
+            NextShop — modern e-commerce storefront.
           </footer>
         </CartProvider>
       </body>
