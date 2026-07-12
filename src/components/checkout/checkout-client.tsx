@@ -2,63 +2,41 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { checkout } from "@/actions/checkout";
-import { formatCurrency } from "@/lib/format";
-import type { CartView } from "@/lib/queries/cart";
+import { createCheckoutSession } from "@/actions/stripe-checkout";
+import { useCart } from "@/components/providers/cart-provider";
+import { formatCurrencyFromCents } from "@/lib/format";
 
-export function CheckoutClient({ cart }: { cart: CartView }) {
-  const router = useRouter();
+export function CheckoutClient() {
+  const { items, itemCount, subtotal, getCheckoutLines, isHydrated } =
+    useCart();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [confirmed, setConfirmed] = useState<{
-    orderId: string;
-    total: string;
-  } | null>(null);
 
-  function placeOrder(): void {
+  function payWithStripe(): void {
     setError(null);
+    const lines = getCheckoutLines();
     startTransition(async () => {
-      const result = await checkout();
+      const result = await createCheckoutSession({ lines });
       if (!result.success) {
         setError(result.error);
-        router.refresh();
         return;
       }
-      setConfirmed(result.data);
-      router.refresh();
+      window.location.assign(result.data.url);
     });
   }
 
-  if (confirmed) {
+  if (!isHydrated) {
     return (
-      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-8 text-center dark:border-emerald-900 dark:bg-emerald-950">
-        <h2 className="text-xl font-semibold text-emerald-800 dark:text-emerald-200">
-          Order placed!
-        </h2>
-        <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-300">
-          Order <span className="font-mono">{confirmed.orderId}</span> for{" "}
-          {formatCurrency(confirmed.total)} was created successfully.
-        </p>
-        <div className="mt-6 flex justify-center gap-3">
-          <Link
-            href="/dashboard"
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-          >
-            View orders
-          </Link>
-          <Link
-            href="/"
-            className="rounded-md border border-black/15 px-4 py-2 text-sm font-medium hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
-          >
-            Keep shopping
-          </Link>
-        </div>
+      <div
+        className="rounded-lg border border-black/10 p-12 text-center text-zinc-500 dark:border-white/10"
+        aria-live="polite"
+      >
+        Loading your cart…
       </div>
     );
   }
 
-  if (cart.items.length === 0) {
+  if (items.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-black/15 p-12 text-center text-zinc-500 dark:border-white/15">
         <p>Your cart is empty.</p>
@@ -76,7 +54,7 @@ export function CheckoutClient({ cart }: { cart: CartView }) {
     <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
       <div className="md:col-span-2">
         <ul className="divide-y divide-black/10 rounded-lg border border-black/10 dark:divide-white/10 dark:border-white/10">
-          {cart.items.map((item) => (
+          {items.map((item) => (
             <li
               key={item.productId}
               className="flex items-center justify-between gap-4 p-4"
@@ -84,11 +62,12 @@ export function CheckoutClient({ cart }: { cart: CartView }) {
               <div>
                 <p className="font-medium">{item.title}</p>
                 <p className="text-sm text-zinc-500">
-                  {formatCurrency(item.unitPrice)} x {item.quantity}
+                  {formatCurrencyFromCents(item.unitPriceCents)} ×{" "}
+                  {item.quantity}
                 </p>
               </div>
               <span className="font-semibold">
-                {formatCurrency(item.lineTotal)}
+                {formatCurrencyFromCents(item.lineTotalCents)}
               </span>
             </li>
           ))}
@@ -99,27 +78,33 @@ export function CheckoutClient({ cart }: { cart: CartView }) {
         <h2 className="mb-4 text-lg font-semibold">Summary</h2>
         <div className="flex items-center justify-between border-b border-black/10 pb-3 text-sm dark:border-white/10">
           <span className="text-zinc-500">Items</span>
-          <span>{cart.itemCount}</span>
+          <span>{itemCount}</span>
         </div>
         <div className="flex items-center justify-between py-3">
-          <span className="text-zinc-500">Total</span>
-          <span className="text-xl font-bold">{formatCurrency(cart.total)}</span>
+          <span className="text-zinc-500">Subtotal</span>
+          <span className="text-xl font-bold">${subtotal}</span>
         </div>
 
         {error && (
-          <p className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+          <p
+            role="alert"
+            className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300"
+          >
             {error}
           </p>
         )}
 
         <button
           type="button"
-          onClick={placeOrder}
+          onClick={payWithStripe}
           disabled={isPending}
           className="w-full rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
         >
-          {isPending ? "Placing order..." : "Place order"}
+          {isPending ? "Redirecting to Stripe…" : "Pay with Stripe"}
         </button>
+        <p className="mt-3 text-center text-xs text-zinc-500">
+          Secure checkout powered by Stripe. No account required.
+        </p>
       </div>
     </div>
   );

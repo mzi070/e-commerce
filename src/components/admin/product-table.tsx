@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { deleteProduct } from "@/actions/product";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrencyFromCents } from "@/lib/format";
 import { ProductFormModal } from "@/components/admin/product-form-modal";
 import type { ProductListItem } from "@/lib/queries/products";
 
@@ -73,7 +73,9 @@ export function ProductTable({ products }: { products: ProductListItem[] }) {
                   <td className="px-4 py-3 font-mono text-xs text-zinc-500">
                     {product.sku}
                   </td>
-                  <td className="px-4 py-3">{formatCurrency(product.price)}</td>
+                  <td className="px-4 py-3">
+                    {formatCurrencyFromCents(product.priceCents)}
+                  </td>
                   <td className="px-4 py-3">
                     <span
                       className={

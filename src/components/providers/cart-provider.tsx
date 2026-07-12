@@ -2,101 +2,50 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
-  useOptimistic,
+  useMemo,
   useState,
+  useSyncExternalStore,
   useTransition,
   type ReactNode,
 } from "react";
-import { useRouter } from "next/navigation";
 import {
-  addToCart,
-  removeCartItem,
-  updateCartItemQuantity,
-} from "@/actions/cart";
-import type { ActionResult } from "@/lib/action-result";
-import type { CartLineItem } from "@/lib/queries/cart";
-import { formatCents, multiplyMoney, parseMoneyToCents } from "@/lib/money";
+  cartItemCount,
+  cartSubtotalCents,
+  clearCartStorage,
+  EMPTY_STORED_CART,
+  loadCartFromStorage,
+  saveCartToStorage,
+  type StoredCart,
+  type StoredCartLine,
+} from "@/lib/cart-storage";
+import { formatCents } from "@/lib/money";
 
-/** Minimal product info needed to render an optimistic cart line. */
+/** Minimal product info needed to render a cart line. */
 export interface AddToCartMeta {
   productId: string;
   title: string;
-  unitPrice: string;
+  unitPriceCents: number;
   image: string | null;
   stock: number;
 }
 
-type OptimisticAction =
-  | { type: "add"; meta: AddToCartMeta; quantity: number }
-  | { type: "set"; productId: string; quantity: number }
-  | { type: "remove"; productId: string };
-
-function lineTotalOf(unitPrice: string, quantity: number): string {
-  return multiplyMoney(unitPrice, quantity);
-}
-
-function cartReducer(
-  items: CartLineItem[],
-  action: OptimisticAction,
-): CartLineItem[] {
-  switch (action.type) {
-    case "add": {
-      const existing = items.find(
-        (item) => item.productId === action.meta.productId,
-      );
-      if (existing) {
-        return items.map((item) =>
-          item.productId === action.meta.productId
-            ? {
-                ...item,
-                quantity: item.quantity + action.quantity,
-                lineTotal: lineTotalOf(
-                  item.unitPrice,
-                  item.quantity + action.quantity,
-                ),
-              }
-            : item,
-        );
-      }
-      return [
-        ...items,
-        {
-          productId: action.meta.productId,
-          title: action.meta.title,
-          sku: "",
-          unitPrice: action.meta.unitPrice,
-          lineTotal: lineTotalOf(action.meta.unitPrice, action.quantity),
-          quantity: action.quantity,
-          stock: action.meta.stock,
-          image: action.meta.image,
-        },
-      ];
-    }
-    case "set": {
-      if (action.quantity <= 0) {
-        return items.filter((item) => item.productId !== action.productId);
-      }
-      return items.map((item) =>
-        item.productId === action.productId
-          ? {
-              ...item,
-              quantity: action.quantity,
-              lineTotal: lineTotalOf(item.unitPrice, action.quantity),
-            }
-          : item,
-      );
-    }
-    case "remove":
-      return items.filter((item) => item.productId !== action.productId);
-  }
+export interface CartLineItem {
+  productId: string;
+  title: string;
+  unitPriceCents: number;
+  lineTotalCents: number;
+  quantity: number;
+  stock: number;
+  image: string | null;
 }
 
 interface CartContextValue {
   items: CartLineItem[];
   itemCount: number;
   subtotal: string;
-  isAuthenticated: boolean;
+  isHydrated: boolean;
   isOpen: boolean;
   isPending: boolean;
   error: string | null;
@@ -105,9 +54,37 @@ interface CartContextValue {
   addItem: (meta: AddToCartMeta, quantity?: number) => void;
   setItemQuantity: (productId: string, quantity: number) => void;
   removeItem: (productId: string) => void;
+  clearCart: () => void;
+  getCheckoutLines: () => { productId: string; quantity: number }[];
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
+
+let cartListeners: Array<() => void> = [];
+let cartSnapshot: StoredCart = EMPTY_STORED_CART;
+
+function emitCartChange(): void {
+  for (const listener of cartListeners) {
+    listener();
+  }
+}
+
+function subscribeCart(listener: () => void): () => void {
+  cartListeners.push(listener);
+  return () => {
+    cartListeners = cartListeners.filter((item) => item !== listener);
+  };
+}
+
+function getServerCartSnapshot(): StoredCart {
+  return EMPTY_STORED_CART;
+}
+
+function writeCart(cart: StoredCart): void {
+  cartSnapshot = cart;
+  saveCartToStorage(cart);
+  emitCartChange();
+}
 
 export function useCart(): CartContextValue {
   const context = useContext(CartContext);
@@ -117,79 +94,165 @@ export function useCart(): CartContextValue {
   return context;
 }
 
-interface CartProviderProps {
-  initialItems: CartLineItem[];
-  isAuthenticated: boolean;
-  children: ReactNode;
+function toLineItem(line: StoredCartLine): CartLineItem {
+  return {
+    productId: line.productId,
+    title: line.title,
+    unitPriceCents: line.unitPriceCents,
+    lineTotalCents: line.unitPriceCents * line.quantity,
+    quantity: line.quantity,
+    stock: line.stock,
+    image: line.image,
+  };
 }
 
-export function CartProvider({
-  initialItems,
-  isAuthenticated,
-  children,
-}: CartProviderProps) {
-  const router = useRouter();
+export function CartProvider({ children }: { children: ReactNode }) {
+  const storedCart = useSyncExternalStore(
+    subscribeCart,
+    () => {
+      if (cartSnapshot === EMPTY_STORED_CART && typeof window !== "undefined") {
+        cartSnapshot = loadCartFromStorage();
+      }
+      return cartSnapshot;
+    },
+    getServerCartSnapshot,
+  );
+
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [optimisticItems, applyOptimistic] = useOptimistic(
-    initialItems,
-    cartReducer,
+
+  const isHydrated = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
   );
 
-  const itemCount = optimisticItems.reduce(
-    (count, item) => count + item.quantity,
-    0,
-  );
-  const subtotal = formatCents(
-    optimisticItems.reduce(
-      (sum, item) => sum + parseMoneyToCents(item.lineTotal),
-      0,
-    ),
+  const updateCart = useCallback((updater: (cart: StoredCart) => StoredCart) => {
+    const next = updater(cartSnapshot);
+    writeCart(next);
+  }, []);
+
+  const items = useMemo(
+    () => storedCart.lines.map(toLineItem),
+    [storedCart.lines],
   );
 
-  function run(
-    optimistic: OptimisticAction,
-    action: () => Promise<ActionResult>,
-  ): void {
-    setError(null);
-    startTransition(async () => {
-      applyOptimistic(optimistic);
-      const result = await action();
-      if (!result.success) {
-        setError(result.error);
-      }
-      // Re-sync with authoritative server state (revalidated by the action).
-      router.refresh();
-    });
-  }
+  const itemCount = cartItemCount(storedCart);
+  const subtotal = formatCents(cartSubtotalCents(storedCart));
+
+  const addItem = useCallback(
+    (meta: AddToCartMeta, quantity = 1) => {
+      setError(null);
+      startTransition(() => {
+        updateCart((cart) => {
+          const existing = cart.lines.find(
+            (line) => line.productId === meta.productId,
+          );
+          const nextQty = (existing?.quantity ?? 0) + quantity;
+          if (nextQty > meta.stock) {
+            setError(`Only ${meta.stock} in stock.`);
+            return cart;
+          }
+          if (existing) {
+            return {
+              lines: cart.lines.map((line) =>
+                line.productId === meta.productId
+                  ? { ...line, quantity: nextQty }
+                  : line,
+              ),
+            };
+          }
+          return {
+            lines: [
+              ...cart.lines,
+              {
+                productId: meta.productId,
+                quantity,
+                title: meta.title,
+                unitPriceCents: meta.unitPriceCents,
+                image: meta.image,
+                stock: meta.stock,
+              },
+            ],
+          };
+        });
+        setIsOpen(true);
+      });
+    },
+    [updateCart],
+  );
+
+  const setItemQuantity = useCallback(
+    (productId: string, quantity: number) => {
+      setError(null);
+      startTransition(() => {
+        updateCart((cart) => {
+          const line = cart.lines.find((item) => item.productId === productId);
+          if (!line) {
+            return cart;
+          }
+          if (quantity <= 0) {
+            return {
+              lines: cart.lines.filter((item) => item.productId !== productId),
+            };
+          }
+          if (quantity > line.stock) {
+            setError(`Only ${line.stock} in stock.`);
+            return cart;
+          }
+          return {
+            lines: cart.lines.map((item) =>
+              item.productId === productId ? { ...item, quantity } : item,
+            ),
+          };
+        });
+      });
+    },
+    [updateCart],
+  );
+
+  const removeItem = useCallback(
+    (productId: string) => {
+      setError(null);
+      startTransition(() => {
+        updateCart((cart) => ({
+          lines: cart.lines.filter((line) => line.productId !== productId),
+        }));
+      });
+    },
+    [updateCart],
+  );
+
+  const clearCart = useCallback(() => {
+    writeCart(EMPTY_STORED_CART);
+    clearCartStorage();
+  }, []);
+
+  const getCheckoutLines = useCallback(
+    () =>
+      storedCart.lines.map((line) => ({
+        productId: line.productId,
+        quantity: line.quantity,
+      })),
+    [storedCart.lines],
+  );
 
   const value: CartContextValue = {
-    items: optimisticItems,
+    items,
     itemCount,
     subtotal,
-    isAuthenticated,
+    isHydrated,
     isOpen,
     isPending,
     error,
     openCart: () => setIsOpen(true),
     closeCart: () => setIsOpen(false),
-    addItem: (meta, quantity = 1) => {
-      if (!isAuthenticated) {
-        router.push("/login?callbackUrl=/");
-        return;
-      }
-      setIsOpen(true);
-      run({ type: "add", meta, quantity }, () =>
-        addToCart({ productId: meta.productId, quantity }),
-      );
-    },
-    setItemQuantity: (productId, quantity) =>
-      run({ type: "set", productId, quantity }, () =>
-        updateCartItemQuantity({ productId, quantity }),
-      ),
-    removeItem: (productId) =>
-      run({ type: "remove", productId }, () => removeCartItem({ productId })),
+    addItem,
+    setItemQuantity,
+    removeItem,
+    clearCart,
+    getCheckoutLines,
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

@@ -28,7 +28,8 @@ export async function createProduct(
     return fail("Please fix the errors below.", toFieldErrors(parsed.error));
   }
 
-  const { sku, title, description, price, stock, images } = parsed.data;
+  const { sku, title, description, price, stock, category, images } =
+    parsed.data;
 
   const existing = await prisma.product.findUnique({
     where: { sku },
@@ -41,7 +42,15 @@ export async function createProduct(
   }
 
   const product = await prisma.product.create({
-    data: { sku, title, description, price, stock, images },
+    data: {
+      sku,
+      title,
+      description,
+      priceCents: price,
+      stock,
+      category,
+      images,
+    },
     select: { id: true },
   });
 
@@ -57,12 +66,11 @@ export async function updateProduct(input: unknown): Promise<ActionResult> {
     return fail("Please fix the errors below.", toFieldErrors(parsed.error));
   }
 
-  const { id, ...fields } = parsed.data;
+  const { id, price, ...rest } = parsed.data;
 
-  // If the SKU is being changed, ensure it stays unique.
-  if (fields.sku !== undefined) {
+  if (rest.sku !== undefined) {
     const duplicate = await prisma.product.findFirst({
-      where: { sku: fields.sku, NOT: { id } },
+      where: { sku: rest.sku, NOT: { id } },
       select: { id: true },
     });
     if (duplicate) {
@@ -74,7 +82,10 @@ export async function updateProduct(input: unknown): Promise<ActionResult> {
 
   const updated = await prisma.product.updateMany({
     where: { id },
-    data: fields,
+    data: {
+      ...rest,
+      ...(price !== undefined ? { priceCents: price } : {}),
+    },
   });
   if (updated.count === 0) {
     return fail("Product not found.");
@@ -95,8 +106,6 @@ export async function deleteProduct(input: unknown): Promise<ActionResult> {
   try {
     await prisma.product.delete({ where: { id: parsed.data.id } });
   } catch {
-    // onDelete: Restrict blocks deletion of products referenced by orders,
-    // and delete throws if the record does not exist.
     return fail(
       "This product cannot be deleted because it belongs to existing orders, or it no longer exists.",
     );

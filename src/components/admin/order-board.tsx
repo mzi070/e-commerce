@@ -3,7 +3,7 @@
 import { useState, useTransition, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { updateOrderStatus } from "@/actions/order";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrencyFromCents, formatDate } from "@/lib/format";
 import { StatusBadge } from "@/components/orders/status-badge";
 import type { OrderStatus } from "@/generated/prisma/enums";
 import type { OrderView } from "@/lib/queries/orders";
@@ -80,7 +80,7 @@ export function OrderBoard({ orders }: { orders: OrderView[] }) {
                       <p className="mt-2 text-sm">
                         {order.itemCount} item{order.itemCount === 1 ? "" : "s"} -{" "}
                         <span className="font-semibold">
-                          {formatCurrency(order.total)}
+                          {formatCurrencyFromCents(order.totalCents)}
                         </span>
                       </p>
                       <p className="text-xs text-zinc-400">

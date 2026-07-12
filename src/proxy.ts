@@ -2,8 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/auth/jwt";
 import { sanitizeCallbackUrl } from "@/lib/safe-redirect";
 
-/** Routes that require any authenticated user. */
-const AUTH_PREFIXES = ["/checkout", "/dashboard"];
+/** Routes that require any authenticated user (guest checkout is allowed). */
+const AUTH_PREFIXES = ["/dashboard"];
 /** Routes that require an authenticated ADMIN user. */
 const ADMIN_PREFIXES = ["/admin"];
 
@@ -53,8 +53,6 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
 export const config = {
   matcher: [
-    "/checkout",
-    "/checkout/:path*",
     "/dashboard",
     "/dashboard/:path*",
     "/admin",

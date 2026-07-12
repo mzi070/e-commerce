@@ -1,3 +1,5 @@
+import { formatCents } from "@/lib/money";
+
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
@@ -8,9 +10,17 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
   timeStyle: "short",
 });
 
-/** Format a numeric string or number as USD currency. */
+/** Format integer cents as USD currency for display. */
+export function formatCurrencyFromCents(cents: number): string {
+  return currencyFormatter.format(cents / 100);
+}
+
+/** Format a legacy dollar string or cents number for display. */
 export function formatCurrency(value: string | number): string {
-  const numeric = typeof value === "string" ? Number(value) : value;
+  if (typeof value === "number") {
+    return formatCurrencyFromCents(value);
+  }
+  const numeric = Number(value);
   return currencyFormatter.format(Number.isFinite(numeric) ? numeric : 0);
 }
 
@@ -19,3 +29,5 @@ export function formatDate(value: string | Date): string {
   const date = typeof value === "string" ? new Date(value) : value;
   return dateFormatter.format(date);
 }
+
+export { formatCents };

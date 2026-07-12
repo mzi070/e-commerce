@@ -25,6 +25,12 @@ enum OrderStatus {
   DELIVERED
 }
 
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
 // ---------------------------------------------------------------------------
 // Models
 // ---------------------------------------------------------------------------
@@ -50,9 +56,11 @@ model Product {
   sku         String   @unique
   title       String
   description String
-  price       Decimal  @db.Decimal(10, 2)
+  /// Price in the smallest currency unit (USD cents). Never use floats.
+  priceCents  Int
   stock       Int      @default(0)
   images      String[]
+  category    String   @default("general")
 
   cartItems  CartItem[]
   orderItems OrderItem[]
@@ -61,6 +69,8 @@ model Product {
   updatedAt DateTime @updatedAt
 
   @@index([title])
+  @@index([category])
+  @@index([priceCents])
   @@index([createdAt])
 }
 
@@ -87,17 +97,29 @@ model CartItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // A product may appear at most once per cart; quantity tracks the count.
   @@unique([cartId, productId])
   @@index([productId])
 }
 
 model Order {
   id     String      @id @default(cuid())
-  userId String
-  user   User        @relation(fields: [userId], references: [id])
+  /// Optional for guest checkout.
+  userId String?
+  user   User?       @relation(fields: [userId], references: [id])
   status OrderStatus @default(PENDING)
-  total  Decimal     @db.Decimal(10, 2)
+
+  /// Total in USD cents.
+  totalCents Int
+
+  paymentStatus PaymentStatus @default(PENDING)
+
+  /// Stripe Checkout Session id — unique for idempotent fulfillment.
+  stripeSessionId String? @unique
+  /// Stripe webhook event id — unique for idempotent fulfillment.
+  stripeEventId   String? @unique
+
+  guestEmail       String?
+  shippingAddress  Json?
 
   items OrderItem[]
 
@@ -106,6 +128,7 @@ model Order {
 
   @@index([userId])
   @@index([status])
+  @@index([paymentStatus])
   @@index([createdAt])
 }
 
@@ -113,16 +136,14 @@ model OrderItem {
   id      String @id @default(cuid())
   orderId String
 
-  // Snapshot fields: capture product state at time of purchase so historical
-  // orders remain accurate even if the product is later edited or deleted.
-  productId       String
-  productTitle    String
-  productSku      String
-  priceAtPurchase Decimal @db.Decimal(10, 2)
-  quantity        Int
+  productId            String
+  productTitle         String
+  productSku           String
+  /// Snapshot price in USD cents at time of purchase.
+  priceAtPurchaseCents Int
+  quantity             Int
 
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  // Restrict deletion of products that have been ordered to preserve history.
   product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now())

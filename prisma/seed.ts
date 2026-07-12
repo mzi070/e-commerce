@@ -16,8 +16,9 @@ interface SeedProduct {
   sku: string;
   title: string;
   description: string;
-  price: number;
+  priceCents: number;
   stock: number;
+  category: string;
   images: string[];
 }
 
@@ -27,8 +28,9 @@ const PRODUCTS: SeedProduct[] = [
     title: "Classic Cotton T-Shirt",
     description:
       "A soft, breathable 100% cotton t-shirt that goes with everything. Pre-shrunk and built to last.",
-    price: 24.99,
+    priceCents: 2499,
     stock: 120,
+    category: "apparel",
     images: ["https://picsum.photos/seed/tshirt/600/600"],
   },
   {
@@ -36,8 +38,9 @@ const PRODUCTS: SeedProduct[] = [
     title: "Everyday Fleece Hoodie",
     description:
       "Cozy midweight fleece hoodie with a kangaroo pocket and adjustable drawstring hood.",
-    price: 54.5,
+    priceCents: 5450,
     stock: 60,
+    category: "apparel",
     images: ["https://picsum.photos/seed/hoodie/600/600"],
   },
   {
@@ -45,8 +48,9 @@ const PRODUCTS: SeedProduct[] = [
     title: "Ceramic Coffee Mug (12oz)",
     description:
       "Dishwasher- and microwave-safe ceramic mug with a comfortable handle. Perfect for your morning brew.",
-    price: 14.0,
+    priceCents: 1400,
     stock: 200,
+    category: "home",
     images: ["https://picsum.photos/seed/mug/600/600"],
   },
   {
@@ -54,8 +58,9 @@ const PRODUCTS: SeedProduct[] = [
     title: "Insulated Water Bottle (750ml)",
     description:
       "Double-walled stainless steel bottle that keeps drinks cold for 24 hours or hot for 12.",
-    price: 32.95,
+    priceCents: 3295,
     stock: 0,
+    category: "home",
     images: ["https://picsum.photos/seed/bottle/600/600"],
   },
   {
@@ -63,8 +68,9 @@ const PRODUCTS: SeedProduct[] = [
     title: "Six-Panel Baseball Cap",
     description:
       "Adjustable structured cap with an embroidered logo and a curved brim.",
-    price: 19.99,
+    priceCents: 1999,
     stock: 85,
+    category: "apparel",
     images: ["https://picsum.photos/seed/cap/600/600"],
   },
   {
@@ -72,8 +78,9 @@ const PRODUCTS: SeedProduct[] = [
     title: "Canvas Tote Bag",
     description:
       "Heavy-duty canvas tote with reinforced handles - great for groceries or the beach.",
-    price: 18.5,
+    priceCents: 1850,
     stock: 140,
+    category: "accessories",
     images: ["https://picsum.photos/seed/tote/600/600"],
   },
 ];
@@ -112,8 +119,9 @@ async function main(): Promise<void> {
       update: {
         title: product.title,
         description: product.description,
-        price: product.price,
+        priceCents: product.priceCents,
         stock: product.stock,
+        category: product.category,
         images: product.images,
       },
       create: product,

@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getCartForUser } from "@/lib/queries/cart";
 import { CartProvider } from "@/components/providers/cart-provider";
 import { Header } from "@/components/layout/header";
 import { CartDrawer } from "@/components/cart/cart-drawer";
@@ -25,7 +24,7 @@ export const metadata: Metadata = {
     default: "NextShop - Modern E-Commerce",
     template: "%s | NextShop",
   },
-  description: "A production-grade e-commerce demo built with Next.js.",
+  description: "A production-grade e-commerce storefront built with Next.js.",
   openGraph: {
     type: "website",
     siteName: "NextShop",
@@ -42,9 +41,6 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const user = await getCurrentUser();
-  const cart = user
-    ? await getCartForUser(user.id)
-    : { items: [], itemCount: 0, total: "0.00" };
 
   return (
     <html
@@ -52,17 +48,14 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-zinc-50 text-zinc-900 dark:bg-black dark:text-zinc-100">
-        <CartProvider
-          initialItems={cart.items}
-          isAuthenticated={user !== null}
-        >
+        <CartProvider>
           <Header
             user={user ? { email: user.email, role: user.role } : null}
           />
           <main className="flex-1">{children}</main>
           <CartDrawer />
           <footer className="border-t border-black/10 py-6 text-center text-sm text-zinc-500 dark:border-white/10">
-            NextShop - built with Next.js, Prisma & PostgreSQL.
+            NextShop — secure checkout with Stripe.
           </footer>
         </CartProvider>
       </body>

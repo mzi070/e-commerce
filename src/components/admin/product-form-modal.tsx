@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createProduct, updateProduct } from "@/actions/product";
 import type { FieldErrors } from "@/lib/action-result";
 import type { ProductListItem } from "@/lib/queries/products";
+import { formatCents } from "@/lib/money";
 
 interface ProductFormModalProps {
   mode: "create" | "edit";
@@ -38,6 +39,7 @@ export function ProductFormModal({
       sku: String(form.get("sku") ?? ""),
       title: String(form.get("title") ?? ""),
       description: String(form.get("description") ?? ""),
+      category: String(form.get("category") ?? ""),
       price: String(form.get("price") ?? ""),
       stock: String(form.get("stock") ?? ""),
       images,
@@ -110,8 +112,28 @@ export function ProductFormModal({
               )}
             </label>
             <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Price</span>
-              <input name="price" type="number" step="0.01" min="0" defaultValue={product?.price} required className={inputClass} />
+              <span className="font-medium">Category</span>
+              <input
+                name="category"
+                defaultValue={product?.category ?? "general"}
+                required
+                className={inputClass}
+              />
+              {fieldError(fieldErrors, "category") && (
+                <span className="text-xs text-red-600">{fieldError(fieldErrors, "category")}</span>
+              )}
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Price (USD)</span>
+              <input
+                name="price"
+                type="number"
+                step="0.01"
+                min="0"
+                defaultValue={product ? formatCents(product.priceCents) : undefined}
+                required
+                className={inputClass}
+              />
               {fieldError(fieldErrors, "price") && (
                 <span className="text-xs text-red-600">{fieldError(fieldErrors, "price")}</span>
               )}

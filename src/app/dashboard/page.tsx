@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/session";
 import { getOrdersForUser } from "@/lib/queries/orders";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrencyFromCents, formatDate } from "@/lib/format";
 import { StatusBadge } from "@/components/orders/status-badge";
 
 export const metadata = { title: "Your orders" };
@@ -45,7 +45,7 @@ export default async function DashboardPage() {
                 <div className="flex items-center gap-3">
                   <StatusBadge status={order.status} />
                   <span className="text-lg font-semibold">
-                    {formatCurrency(order.total)}
+                    {formatCurrencyFromCents(order.totalCents)}
                   </span>
                 </div>
               </div>
@@ -56,7 +56,7 @@ export default async function DashboardPage() {
                       {item.title}{" "}
                       <span className="text-zinc-400">x {item.quantity}</span>
                     </span>
-                    <span>{formatCurrency(item.lineTotal)}</span>
+                    <span>{formatCurrencyFromCents(item.lineTotalCents)}</span>
                   </li>
                 ))}
               </ul>

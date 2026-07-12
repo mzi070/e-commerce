@@ -1,15 +1,6 @@
 import { z } from "zod";
 import { productImageUrlSchema } from "@/lib/validations/image-url";
-
-/** Money value with at most two decimal places, tolerant of float rounding. */
-const hasAtMostTwoDecimals = (value: number): boolean =>
-  Math.abs(value * 100 - Math.round(value * 100)) < 1e-9;
-
-const priceSchema = z.coerce
-  .number("Price must be a number.")
-  .positive("Price must be greater than 0.")
-  .max(1_000_000, "Price is too large.")
-  .refine(hasAtMostTwoDecimals, "Price supports at most 2 decimal places.");
+import { dollarsToCents } from "@/lib/money";
 
 const stockSchema = z.coerce
   .number("Stock must be a number.")
@@ -17,12 +8,27 @@ const stockSchema = z.coerce
   .min(0, "Stock cannot be negative.")
   .max(1_000_000, "Stock is too large.");
 
+const categorySchema = z
+  .string()
+  .trim()
+  .min(1, "Category is required.")
+  .max(64)
+  .transform((value) => value.toLowerCase());
+
+/** Admin forms accept dollar strings; stored as integer cents. */
+const priceInputSchema = z
+  .union([z.string(), z.number()])
+  .transform((value) => dollarsToCents(value))
+  .refine((cents) => cents > 0, "Price must be greater than 0.")
+  .refine((cents) => cents <= 100_000_000, "Price is too large.");
+
 export const productBaseSchema = z.object({
   sku: z.string().trim().min(1, "SKU is required.").max(64),
   title: z.string().trim().min(1, "Title is required.").max(200),
   description: z.string().trim().min(1, "Description is required.").max(5000),
-  price: priceSchema,
+  price: priceInputSchema,
   stock: stockSchema,
+  category: categorySchema,
   images: z.array(productImageUrlSchema).max(10),
 });
 
