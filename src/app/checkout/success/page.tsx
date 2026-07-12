@@ -1,26 +1,26 @@
 import Link from "next/link";
-import { verifyCheckoutSession } from "@/actions/stripe-checkout";
+import { verifySwipePayment } from "@/actions/swipe-checkout";
 import { CheckoutSuccessClient } from "@/components/checkout/checkout-success-client";
 import { formatCurrencyFromCents } from "@/lib/format";
 
 export const metadata = { title: "Order confirmed" };
 
 interface SuccessPageProps {
-  searchParams: Promise<{ session_id?: string }>;
+  searchParams: Promise<{ reference_no?: string; status?: string }>;
 }
 
 export default async function CheckoutSuccessPage({
   searchParams,
 }: SuccessPageProps) {
-  const { session_id: sessionId } = await searchParams;
+  const { reference_no: referenceNo, status } = await searchParams;
 
-  if (!sessionId) {
+  if (!referenceNo) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold">Missing session</h1>
+        <h1 className="text-2xl font-bold">Missing reference</h1>
         <p className="mt-2 text-zinc-500">
-          We could not verify your order. Check your email for a receipt from
-          Stripe.
+          We could not verify your order. If you were charged, contact support
+          with your payment confirmation.
         </p>
         <Link
           href="/"
@@ -32,7 +32,24 @@ export default async function CheckoutSuccessPage({
     );
   }
 
-  const result = await verifyCheckoutSession(sessionId);
+  if (status && status.toLowerCase() === "failed") {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 text-center">
+        <h1 className="text-2xl font-bold">Payment failed</h1>
+        <p className="mt-2 text-zinc-500">
+          Your payment was not completed. Your cart is still available.
+        </p>
+        <Link
+          href="/checkout"
+          className="mt-6 inline-block font-medium text-indigo-600 hover:underline"
+        >
+          Try again
+        </Link>
+      </div>
+    );
+  }
+
+  const result = await verifySwipePayment(referenceNo);
 
   if (!result.success) {
     return (

@@ -54,7 +54,6 @@ function serializeOrder(order: OrderWithRelations): OrderView {
   };
 }
 
-/** Orders belonging to a single customer, newest first. */
 export async function getOrdersForUser(userId: string): Promise<OrderView[]> {
   const orders = await prisma.order.findMany({
     where: { userId },
@@ -64,7 +63,6 @@ export async function getOrdersForUser(userId: string): Promise<OrderView[]> {
   return orders.map(serializeOrder);
 }
 
-/** All orders across the store (admin), newest first. */
 export async function getAllOrders(): Promise<OrderView[]> {
   const orders = await prisma.order.findMany({
     orderBy: { createdAt: "desc" },
@@ -85,16 +83,17 @@ export interface CreateOrderInput {
   userId?: string | null;
   guestEmail?: string | null;
   totalCents: number;
-  stripeSessionId: string;
-  stripeEventId: string;
+  paymentReferenceNo: string;
+  swipeTransactionId: string;
+  swipeWebhookId: string;
   shippingAddress?: Prisma.InputJsonValue;
   items: CreateOrderItemInput[];
 }
 
-/** Idempotent order creation keyed by stripeSessionId. */
+/** Idempotent order creation keyed by paymentReferenceNo. */
 export async function createOrder(input: CreateOrderInput): Promise<OrderView> {
   const existing = await prisma.order.findUnique({
-    where: { stripeSessionId: input.stripeSessionId },
+    where: { paymentReferenceNo: input.paymentReferenceNo },
     include: { items: true, user: { select: { email: true } } },
   });
   if (existing) {
@@ -118,8 +117,9 @@ export async function createOrder(input: CreateOrderInput): Promise<OrderView> {
         guestEmail: input.guestEmail ?? null,
         totalCents: input.totalCents,
         paymentStatus: "PAID",
-        stripeSessionId: input.stripeSessionId,
-        stripeEventId: input.stripeEventId,
+        paymentReferenceNo: input.paymentReferenceNo,
+        swipeTransactionId: input.swipeTransactionId,
+        swipeWebhookId: input.swipeWebhookId,
         shippingAddress: input.shippingAddress,
         items: {
           create: input.items.map((item) => ({
@@ -138,17 +138,16 @@ export async function createOrder(input: CreateOrderInput): Promise<OrderView> {
   return serializeOrder(order);
 }
 
-export async function getOrderByStripeSessionId(
-  sessionId: string,
+export async function getOrderByPaymentReference(
+  referenceNo: string,
 ): Promise<OrderView | null> {
   const order = await prisma.order.findUnique({
-    where: { stripeSessionId: sessionId },
+    where: { paymentReferenceNo: referenceNo },
     include: { items: true, user: { select: { email: true } } },
   });
   return order ? serializeOrder(order) : null;
 }
 
-/** Format order total for display. */
 export function orderTotalDisplay(order: OrderView): string {
   return formatCents(order.totalCents);
 }

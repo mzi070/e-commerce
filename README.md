@@ -1,32 +1,32 @@
 # NextShop — Production E-Commerce Storefront
 
-A production-ready e-commerce storefront built with **Next.js 16 (App Router)**, **React 19**, **TypeScript (strict)**, **Tailwind CSS 4**, **Prisma 7 + PostgreSQL**, and **Stripe Checkout**.
+A production-ready e-commerce storefront built with **Next.js 16 (App Router)**, **React 19**, **TypeScript (strict)**, **Tailwind CSS 4**, **Prisma 7 + PostgreSQL**, and **Swipez Payment Gateway**.
 
-Money is stored and computed in **integer cents**. The server re-prices every checkout from authoritative product records. Orders are fulfilled idempotently in a **Stripe webhook handler**, not on the client success page.
+Money is stored and computed in **integer cents**. The server re-prices every checkout from authoritative product records. Orders are fulfilled idempotently in a **Swipez webhook handler**, not on the client success page.
 
 ## Features
 
 - **Catalog** — server-rendered product grid with search, category filter, and sort (ISR cached)
 - **Product pages** — static generation per product, SEO metadata, JSON-LD structured data
 - **Cart** — localStorage persistence with SSR-safe hydration, slide-over panel, stock-capped quantities
-- **Checkout** — Stripe Checkout Sessions created server-side from validated line items
-- **Fulfillment** — webhook-verified, idempotent order creation on `checkout.session.completed`
+- **Checkout** — Swipez hosted payment via signed form POST, server-computed totals
+- **Fulfillment** — webhook-verified, idempotent order creation on successful payment
 - **Guest checkout** — no account required; optional shipping address via config flag
 - **Admin** — product CRUD and order management (auth-gated)
-- **Security** — Zod validation, rate limiting, CSP headers, safe redirects
+- **Security** — Zod validation, rate limiting, CSP headers, MD5 checksum verification
 
 ## Prerequisites
 
 - Node.js 20.9+
 - PostgreSQL
-- [Stripe account](https://dashboard.stripe.com/register) (test mode is fine for development)
+- [Swipez merchant account](https://docs.swipez.in/payment-gateway/web-integration)
 
 ## Quick start
 
 ```bash
 npm install
 cp .env.example .env
-# Fill in DATABASE_URL, JWT_SECRET, and Stripe keys (see below)
+# Fill in DATABASE_URL, JWT_SECRET, and Swipez credentials
 
 npm run db:migrate
 npm run db:seed
@@ -35,15 +35,14 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-### Stripe local webhook forwarding
+### Swipez webhook setup
 
-In a second terminal:
+In your Swipez merchant dashboard, configure:
 
-```bash
-npx stripe listen --forward-to localhost:3000/api/webhooks/stripe
-```
+- **Webhook URL:** `https://your-domain.com/api/webhooks/swipez`
+- **Return URL** is set automatically to `/api/checkout/swipez/return`
 
-Copy the webhook signing secret (`whsec_...`) into `.env` as `STRIPE_WEBHOOK_SECRET`.
+For local testing, use a tunnel (e.g. ngrok) since Swipez requires a public HTTPS webhook URL.
 
 ## Environment variables
 
@@ -52,14 +51,13 @@ Copy the webhook signing secret (`whsec_...`) into `.env` as `STRIPE_WEBHOOK_SEC
 | `DATABASE_URL` | Yes | Your PostgreSQL connection string |
 | `JWT_SECRET` | Yes | `openssl rand -base64 32` |
 | `NEXT_PUBLIC_SITE_URL` | Yes | Public site URL (e.g. `http://localhost:3000`) |
-| `STRIPE_SECRET_KEY` | For payments | [Stripe Dashboard → API keys](https://dashboard.stripe.com/apikeys) |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | For payments | Same page (publishable key) |
-| `STRIPE_WEBHOOK_SECRET` | For fulfillment | `stripe listen` output or Dashboard → Webhooks |
-| `STRIPE_TAX_ENABLED` | No | Set `"true"` to enable Stripe Tax |
-| `STRIPE_COLLECT_SHIPPING` | No | Set `"true"` to collect shipping address |
+| `SWIPEZ_ACCOUNT_ID` | For payments | Swipez merchant dashboard |
+| `SWIPEZ_XWAY_KEY` | For payments | Swipez support / dashboard |
+| `SWIPEZ_CHECKOUT_URL` | No | Test: `https://h7sak8am43.swipez.in/xway/secure`, Live: `https://www.swipez.in/xway/secure` |
+| `SWIPEZ_COLLECT_SHIPPING` | No | Set `"true"` to collect address on checkout |
 | `FLAT_SHIPPING_CENTS` | No | Flat shipping fee in cents (e.g. `500` = $5.00) |
 
-Secrets are loaded lazily — the build does not require Stripe keys.
+Secrets are loaded lazily — the build does not require Swipez keys.
 
 ## Scripts
 
@@ -83,30 +81,27 @@ Secrets are loaded lazily — the build does not require Stripe keys.
 
 ```
 src/
-├── actions/           # Server Actions (auth, stripe-checkout, product, order)
-├── app/               # App Router routes + webhook API route
-├── components/        # UI (storefront islands + admin)
+├── actions/           # Server Actions (auth, swipe-checkout, product, order)
+├── app/
+│   └── api/
+│       ├── checkout/swipez/return   # Swipez return URL handler
+│       └── webhooks/swipez          # Payment fulfillment webhook
 ├── lib/
-│   ├── queries/       # Data layer: getProducts, getProduct, createOrder, …
-│   ├── pricing.ts     # Server-side re-pricing guard (security-critical)
-│   ├── cart-storage.ts# Client cart persistence (localStorage)
-│   ├── fulfillment.ts # Webhook order fulfillment
-│   └── stripe.ts      # Lazy Stripe client
-└── proxy.ts           # Route protection
+│   ├── queries/       # Data layer: getProducts, createOrder, …
+│   ├── pricing.ts     # Server-side re-pricing guard
+│   ├── swipe.ts       # Swipez hash generation & config
+│   └── fulfillment.ts # Webhook order fulfillment
 ```
-
-### Money
-
-All prices are **integer cents** (`priceCents`, `totalCents`). Display formatting happens only at the UI boundary via `formatCurrencyFromCents()`.
 
 ### Checkout flow
 
-1. Client sends `{ productId, quantity }[]` to `createCheckoutSession`
-2. Server validates with Zod, re-prices from DB, creates Stripe Checkout Session
-3. User pays on Stripe-hosted page
-4. Stripe webhook calls `/api/webhooks/stripe` with signed payload
-5. `fulfillCheckoutSession()` creates order idempotently (unique `stripeSessionId`)
-6. Success page verifies session server-side before showing confirmation
+1. Client sends `{ productId, quantity }[]` + payer details to `createSwipeCheckout`
+2. Server validates with Zod, re-prices from DB, stores `PaymentReference`
+3. Server generates MD5 `secure_hash`, returns form fields
+4. Client auto-posts form to Swipez hosted payment page
+5. Swipez webhook calls `/api/webhooks/swipez` on success
+6. `fulfillSwipezPayment()` creates order idempotently (unique `paymentReferenceNo`)
+7. Success page verifies order exists server-side before confirming
 
 ## Testing
 
@@ -114,17 +109,16 @@ All prices are **integer cents** (`priceCents`, `totalCents`). Display formattin
 npm run test
 ```
 
-Unit tests cover the pricing/cart-total logic and the server-side re-pricing guard in `src/lib/pricing.test.ts`.
+Use Swipez test card: `4111 1111 1111 1111`, expiry `07/23`, CVV `123`.
 
 ## What I'd do next for production
 
-1. **Real inventory backend** — Replace Prisma file with a dedicated inventory service; add stock reservation during checkout session TTL
-2. **Stripe Products/Prices** — Sync catalog to Stripe instead of inline `price_data`; enables promotions and subscriptions
-3. **Fraud & 3DS** — Enable Stripe Radar rules; use `payment_intent_data` for SCA where required
-4. **Observability** — Structured logging (no PII), error tracking (Sentry), webhook delivery monitoring
-5. **Order confirmation email** — Send transactional email on fulfillment via Resend/SendGrid with order snapshot
-6. **Distributed rate limiting** — Replace in-memory limiter with Redis/Upstash for multi-instance deploys
-7. **CI/CD** — GitHub Actions: lint, typecheck, test, migrate deploy on Vercel
+1. **Real inventory backend** — stock reservation during payment window
+2. **Swipez payment status polling** — backup verification if webhook is delayed
+3. **Fraud controls** — velocity limits, address verification
+4. **Observability** — structured logging (no PII), webhook delivery monitoring
+5. **Order confirmation email** — send on fulfillment
+6. **Distributed rate limiting** — Redis/Upstash for multi-instance deploys
 
 ## License
 
