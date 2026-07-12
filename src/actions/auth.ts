@@ -4,9 +4,13 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { createSession, destroySession } from "@/lib/auth/session";
-import { loginSchema, registerSchema } from "@/lib/validations/auth";
+import {
+  loginActionSchema,
+  registerActionSchema,
+} from "@/lib/validations/auth";
 import { enforceRateLimit } from "@/lib/rate-limit";
-import { fail, ok, toFieldErrors, type ActionResult } from "@/lib/action-result";
+import { sanitizeCallbackUrl } from "@/lib/safe-redirect";
+import { fail, toFieldErrors, type ActionResult } from "@/lib/action-result";
 
 const AUTH_RATE_LIMIT = { limit: 10, windowMs: 60_000 } as const;
 
@@ -26,39 +30,44 @@ export async function register(input: unknown): Promise<ActionResult> {
     return fail("Too many attempts. Please wait a moment and try again.");
   }
 
-  const parsed = registerSchema.safeParse(input);
+  const parsed = registerActionSchema.safeParse(input);
   if (!parsed.success) {
     return fail("Please fix the errors below.", toFieldErrors(parsed.error));
   }
 
-  const { name, email, password } = parsed.data;
+  const { name, email, password, callbackUrl } = parsed.data;
 
-  const existing = await prisma.user.findUnique({
-    where: { email },
-    select: { id: true },
-  });
-  if (existing) {
-    // Generic message to avoid revealing whether the email is registered.
-    return fail(
-      "Unable to create account. If you already have an account, try signing in.",
-    );
+  try {
+    const existing = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    if (existing) {
+      // Generic message to avoid revealing whether the email is registered.
+      return fail(
+        "Unable to create account. If you already have an account, try signing in.",
+      );
+    }
+
+    const passwordHash = await hashPassword(password);
+
+    // Create the user together with an empty cart in one write.
+    const user = await prisma.user.create({
+      data: {
+        email,
+        name: name ?? null,
+        passwordHash,
+        cart: { create: {} },
+      },
+      select: { id: true, email: true, role: true },
+    });
+
+    await createSession({ userId: user.id, email: user.email, role: user.role });
+  } catch {
+    return fail("Something went wrong. Please try again.");
   }
 
-  const passwordHash = await hashPassword(password);
-
-  // Create the user together with an empty cart in one write.
-  const user = await prisma.user.create({
-    data: {
-      email,
-      name: name ?? null,
-      passwordHash,
-      cart: { create: {} },
-    },
-    select: { id: true, email: true, role: true },
-  });
-
-  await createSession({ userId: user.id, email: user.email, role: user.role });
-  return ok(undefined);
+  redirect(sanitizeCallbackUrl(callbackUrl));
 }
 
 export async function login(input: unknown): Promise<ActionResult> {
@@ -71,29 +80,44 @@ export async function login(input: unknown): Promise<ActionResult> {
     return fail("Too many attempts. Please wait a moment and try again.");
   }
 
-  const parsed = loginSchema.safeParse(input);
+  const parsed = loginActionSchema.safeParse(input);
   if (!parsed.success) {
     return fail("Please fix the errors below.", toFieldErrors(parsed.error));
   }
 
-  const { email, password } = parsed.data;
+  const { email, password, callbackUrl } = parsed.data;
 
-  const user = await prisma.user.findUnique({
-    where: { email },
-    select: { id: true, email: true, role: true, passwordHash: true },
-  });
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        status: true,
+        passwordHash: true,
+      },
+    });
 
-  // Always run the hash comparison path to reduce user-enumeration timing leaks.
-  const passwordOk = user
-    ? await verifyPassword(password, user.passwordHash)
-    : await verifyPassword(password, DECOY_PASSWORD_HASH);
+    // Always run the hash comparison path to reduce user-enumeration timing leaks.
+    const passwordOk = user
+      ? await verifyPassword(password, user.passwordHash)
+      : await verifyPassword(password, DECOY_PASSWORD_HASH);
 
-  if (!user || !passwordOk) {
-    return fail("Invalid email or password.");
+    if (!user || !passwordOk) {
+      return fail("Invalid email or password.");
+    }
+
+    if (user.status === "SUSPENDED") {
+      return fail("This account has been suspended. Contact support.");
+    }
+
+    await createSession({ userId: user.id, email: user.email, role: user.role });
+  } catch {
+    return fail("Something went wrong. Please try again.");
   }
 
-  await createSession({ userId: user.id, email: user.email, role: user.role });
-  return ok(undefined);
+  redirect(sanitizeCallbackUrl(callbackUrl));
 }
 
 export async function logout(): Promise<void> {

@@ -2,7 +2,9 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth/session";
 import { getOrdersForUser } from "@/lib/queries/orders";
 import { formatCurrencyFromCents, formatDate } from "@/lib/format";
+import { PAYMENT_METHOD_LABELS } from "@/lib/payment-methods";
 import { StatusBadge } from "@/components/orders/status-badge";
+import { PaymentStatusBadge } from "@/components/orders/payment-status-badge";
 
 export const metadata = { title: "Your orders" };
 
@@ -42,8 +44,12 @@ export default async function DashboardPage() {
                     {formatDate(order.createdAt)}
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge status={order.status} />
+                  <PaymentStatusBadge status={order.paymentStatus} />
+                  <span className="text-xs text-zinc-400">
+                    {PAYMENT_METHOD_LABELS[order.paymentMethod]}
+                  </span>
                   <span className="text-lg font-semibold">
                     {formatCurrencyFromCents(order.totalCents)}
                   </span>

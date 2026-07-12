@@ -2,10 +2,12 @@
 
 import { useState, useTransition, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
-import { updateOrderStatus } from "@/actions/order";
+import { updateOrderStatus, updatePaymentStatus } from "@/actions/order";
 import { formatCurrencyFromCents, formatDate } from "@/lib/format";
+import { PAYMENT_METHOD_LABELS } from "@/lib/payment-methods";
 import { StatusBadge } from "@/components/orders/status-badge";
-import type { OrderStatus } from "@/generated/prisma/enums";
+import { PaymentStatusBadge } from "@/components/orders/payment-status-badge";
+import type { OrderStatus, PaymentStatus } from "@/generated/prisma/enums";
 import type { OrderView } from "@/lib/queries/orders";
 
 const COLUMNS: { status: OrderStatus; label: string }[] = [
@@ -15,6 +17,7 @@ const COLUMNS: { status: OrderStatus; label: string }[] = [
 ];
 
 const ALL_STATUSES: OrderStatus[] = ["PENDING", "SHIPPED", "DELIVERED"];
+const ALL_PAYMENT_STATUSES: PaymentStatus[] = ["PENDING", "PAID", "FAILED"];
 
 export function OrderBoard({ orders }: { orders: OrderView[] }) {
   const router = useRouter();
@@ -25,6 +28,17 @@ export function OrderBoard({ orders }: { orders: OrderView[] }) {
     setError(null);
     startTransition(async () => {
       const result = await updateOrderStatus({ orderId, status });
+      if (!result.success) {
+        setError(result.error);
+      }
+      router.refresh();
+    });
+  }
+
+  function changePaymentStatus(orderId: string, paymentStatus: PaymentStatus): void {
+    setError(null);
+    startTransition(async () => {
+      const result = await updatePaymentStatus({ orderId, paymentStatus });
       if (!result.success) {
         setError(result.error);
       }
@@ -74,6 +88,12 @@ export function OrderBoard({ orders }: { orders: OrderView[] }) {
                         </span>
                         <StatusBadge status={order.status} />
                       </div>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        <PaymentStatusBadge status={order.paymentStatus} />
+                        <span className="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                          {PAYMENT_METHOD_LABELS[order.paymentMethod]}
+                        </span>
+                      </div>
                       <p className="mt-1 truncate text-xs text-zinc-400">
                         {order.customerEmail ?? "Unknown"}
                       </p>
@@ -87,8 +107,19 @@ export function OrderBoard({ orders }: { orders: OrderView[] }) {
                         {formatDate(order.createdAt)}
                       </p>
 
+                      {order.paymentProofUrl && (
+                        <a
+                          href={order.paymentProofUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-2 block text-xs font-medium text-indigo-600 hover:underline"
+                        >
+                          View transfer receipt
+                        </a>
+                      )}
+
                       <label className="mt-3 block text-xs text-zinc-500">
-                        Update status
+                        Fulfillment
                         <select
                           value={order.status}
                           disabled={isPending}
@@ -101,6 +132,27 @@ export function OrderBoard({ orders }: { orders: OrderView[] }) {
                           className="mt-1 w-full rounded-md border border-black/15 bg-transparent px-2 py-1.5 text-sm outline-none focus:border-indigo-500 dark:border-white/15"
                         >
                           {ALL_STATUSES.map((status) => (
+                            <option key={status} value={status}>
+                              {status}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="mt-2 block text-xs text-zinc-500">
+                        Payment
+                        <select
+                          value={order.paymentStatus}
+                          disabled={isPending}
+                          onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                            changePaymentStatus(
+                              order.id,
+                              event.target.value as PaymentStatus,
+                            )
+                          }
+                          className="mt-1 w-full rounded-md border border-black/15 bg-transparent px-2 py-1.5 text-sm outline-none focus:border-indigo-500 dark:border-white/15"
+                        >
+                          {ALL_PAYMENT_STATUSES.map((status) => (
                             <option key={status} value={status}>
                               {status}
                             </option>

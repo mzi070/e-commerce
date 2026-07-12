@@ -22,5 +22,15 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password is required.").max(128),
 });
 
+const callbackUrlSchema = z.string().optional();
+
+export const loginActionSchema = loginSchema.extend({
+  callbackUrl: callbackUrlSchema,
+});
+
+export const registerActionSchema = registerSchema.extend({
+  callbackUrl: callbackUrlSchema,
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;

@@ -19,6 +19,11 @@ enum Role {
   ADMIN
 }
 
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
 enum OrderStatus {
   PENDING
   SHIPPED
@@ -31,6 +36,11 @@ enum PaymentStatus {
   FAILED
 }
 
+enum PaymentMethod {
+  BANK_TRANSFER
+  COD
+}
+
 // ---------------------------------------------------------------------------
 // Models
 // ---------------------------------------------------------------------------
@@ -40,7 +50,9 @@ model User {
   email        String   @unique
   passwordHash String
   name         String?
-  role         Role     @default(CUSTOMER)
+  role         Role       @default(CUSTOMER)
+  status       UserStatus @default(ACTIVE)
+  suspendedAt  DateTime?
 
   cart   Cart?
   orders Order[]
@@ -49,6 +61,8 @@ model User {
   updatedAt DateTime @updatedAt
 
   @@index([role])
+  @@index([status])
+  @@index([email])
 }
 
 model Product {
@@ -111,6 +125,10 @@ model Order {
   totalCents Int
 
   paymentStatus PaymentStatus @default(PENDING)
+  paymentMethod PaymentMethod
+
+  /// Public URL path to uploaded bank-transfer receipt image.
+  paymentProofUrl String?
 
   guestEmail      String?
   shippingAddress Json?
@@ -123,6 +141,7 @@ model Order {
   @@index([userId])
   @@index([status])
   @@index([paymentStatus])
+  @@index([paymentMethod])
   @@index([createdAt])
 }
 

@@ -1,14 +1,11 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { login } from "@/actions/auth";
 import type { FieldErrors } from "@/lib/action-result";
-import { sanitizeCallbackUrl } from "@/lib/safe-redirect";
 
 export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -19,6 +16,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
     const payload = {
       email: String(form.get("email") ?? ""),
       password: String(form.get("password") ?? ""),
+      callbackUrl,
     };
     setError(null);
     setFieldErrors({});
@@ -27,10 +25,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
       if (!result.success) {
         setError(result.error);
         setFieldErrors(result.fieldErrors ?? {});
-        return;
       }
-      router.push(sanitizeCallbackUrl(callbackUrl));
-      router.refresh();
     });
   }
 
