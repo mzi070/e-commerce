@@ -62,3 +62,67 @@ export const fetchMyOrders = async (email) => {
   });
   return handleResponse(res);
 };
+
+export const fetchProfile = async () => {
+  const res = await fetch(`${API_BASE_URL}/auth/profile`, { headers: authHeaders() });
+  return handleResponse(res);
+};
+
+export const updateProfile = async (name) => {
+  const res = await fetch(`${API_BASE_URL}/auth/profile`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ name }),
+  });
+  return handleResponse(res);
+};
+
+export const changePassword = async (currentPassword, newPassword) => {
+  const res = await fetch(`${API_BASE_URL}/auth/change-password`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  return handleResponse(res);
+};
+
+// Admin product CRUD
+export const adminCreateProduct = async (data) => {
+  const res = await fetch(`${API_BASE_URL}/products`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res);
+};
+
+export const adminUpdateProduct = async (id, data) => {
+  const res = await fetch(`${API_BASE_URL}/products/${id}`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res);
+};
+
+export const adminDeleteProduct = async (id) => {
+  const res = await fetch(`${API_BASE_URL}/products/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  return handleResponse(res);
+};
+
+export const fetchAdminOrders = async () => {
+  const res = await fetch(`${API_BASE_URL}/orders`, { headers: authHeaders() });
+  return handleResponse(res);
+};
+
+export const adminUpdateOrderStatus = async (id, status) => {
+  const res = await fetch(`${API_BASE_URL}/orders/${id}/status`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify({ status }),
+  });
+  return handleResponse(res);
+};

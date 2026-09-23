@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../hooks/useCart';
+import { useWishlist } from '../hooks/useWishlist';
 import { fetchProducts } from '../services/api';
+import { toast } from 'sonner';
 
 const Home = () => {
   const { addToCart } = useCart();
@@ -22,8 +24,17 @@ const Home = () => {
     loadProducts();
   }, []);
 
+  const { toggleWishlist, isInWishlist } = useWishlist();
+
   const handleAddToCart = (product) => {
     addToCart(product);
+    toast.success(`${product.name} added to cart`);
+  };
+
+  const handleToggleWishlist = (product) => {
+    const added = toggleWishlist(product);
+    if (added) toast.success(`${product.name} added to wishlist`);
+    else toast.info(`${product.name} removed from wishlist`);
   };
 
   return (
@@ -113,40 +124,48 @@ const Home = () => {
           </div>
 
           {loading ? (
-            <div className="flex justify-center items-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="bg-white rounded-xl shadow-sm overflow-hidden animate-pulse">
+                  <div className="h-48 bg-gray-200" />
+                  <div className="p-4 space-y-3">
+                    <div className="h-4 bg-gray-200 rounded w-3/4" />
+                    <div className="h-3 bg-gray-200 rounded" />
+                    <div className="h-3 bg-gray-200 rounded w-2/3" />
+                    <div className="flex justify-between mt-2">
+                      <div className="h-6 bg-gray-200 rounded w-1/4" />
+                      <div className="h-8 bg-gray-200 rounded w-1/4" />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {featuredProducts.map((product) => (
-                <div
-                  key={product.id}
-                  className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300"
-                >
-                  <Link to={`/products/${product.id}`}>
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="w-full h-48 object-cover hover:scale-105 transition-transform duration-300"
-                    />
+                <div key={product.id} className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
+                  <Link to={`/products/${product.id}`} className="block relative">
+                    <img src={product.image} alt={product.name} className="w-full h-48 object-cover hover:scale-105 transition-transform duration-300" />
+                    <button
+                      onClick={(e) => { e.preventDefault(); handleToggleWishlist(product); }}
+                      className={`absolute top-2 right-2 p-1.5 rounded-full shadow transition-colors ${
+                        isInWishlist(product.id) ? 'bg-red-50 text-red-500' : 'bg-white text-gray-400 hover:text-red-500'
+                      }`}
+                      aria-label="Toggle wishlist"
+                    >
+                      <svg className="w-4 h-4" fill={isInWishlist(product.id) ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                      </svg>
+                    </button>
                   </Link>
                   <div className="p-4">
                     <Link to={`/products/${product.id}`}>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2 hover:text-primary-600 transition-colors">
-                        {product.name}
-                      </h3>
+                      <h3 className="text-base font-semibold text-gray-900 mb-1 hover:text-primary-600 transition-colors line-clamp-1">{product.name}</h3>
                     </Link>
-                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                      {product.description}
-                    </p>
+                    <p className="text-gray-500 text-sm mb-3 line-clamp-2">{product.description}</p>
                     <div className="flex items-center justify-between">
-                      <span className="text-2xl font-bold text-primary-600">
-                        ${product.price.toFixed(2)}
-                      </span>
-                      <button
-                        onClick={() => handleAddToCart(product)}
-                        className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium text-sm"
-                      >
+                      <span className="text-xl font-bold text-primary-600">${product.price.toFixed(2)}</span>
+                      <button onClick={() => handleAddToCart(product)} className="px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-semibold text-sm">
                         Add to Cart
                       </button>
                     </div>

@@ -158,6 +158,25 @@ exports.getProfile = async (req, res) => {
 };
 
 /**
+ * Update user profile (name only)
+ */
+exports.updateProfile = async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, message: 'Name is required' });
+    }
+    const { updateUser } = require('../utils/dbHelpers');
+    const updated = await updateUser(req.user.id, { name: name.trim() });
+    const { password: _, ...userWithoutPassword } = updated;
+    res.json({ success: true, data: { user: userWithoutPassword } });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ success: false, message: 'Failed to update profile' });
+  }
+};
+
+/**
  * Logout user
  * Note: With JWT, logout is primarily handled on the client side by removing the token
  * This endpoint can be used for logging or token blacklisting in the future
