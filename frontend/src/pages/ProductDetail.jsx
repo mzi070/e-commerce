@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../hooks/useCart';
 import { fetchProductById } from '../services/api';
+import { toast } from 'sonner';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -13,12 +14,9 @@ const ProductDetail = () => {
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
 
-  // Sample additional images (in a real app, these would come from the product data)
-  const productImages = product ? [
-    product.image,
-    product.image,
-    product.image,
-  ] : [];
+  const productImages = product
+    ? (product.images?.length > 0 ? product.images : [product.image])
+    : [];
 
   useEffect(() => {
     const loadProduct = async () => {
@@ -41,7 +39,7 @@ const ProductDetail = () => {
         addToCart(product);
       }
       // Optional: Show success message or redirect
-      alert(`Added ${quantity} ${product.name}(s) to cart!`);
+      toast.success(`Added ${quantity} ${product.name}${quantity > 1 ? 's' : ''} to cart`);
     }
   };
 

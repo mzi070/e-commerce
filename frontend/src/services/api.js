@@ -1,31 +1,64 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
+const getToken = () => {
+  try { return localStorage.getItem('token'); } catch { return null; }
+};
+
+const authHeaders = (extra = {}) => {
+  const token = getToken();
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+};
+
+const handleResponse = async (res) => {
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || `Request failed (${res.status})`);
+  return data;
+};
+
 export const fetchProducts = async () => {
-  const response = await fetch(`${API_BASE_URL}/products`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch products');
-  }
-  return response.json();
+  const res = await fetch(`${API_BASE_URL}/products`);
+  return handleResponse(res);
 };
 
 export const fetchProductById = async (id) => {
-  const response = await fetch(`${API_BASE_URL}/products/${id}`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch product');
-  }
-  return response.json();
+  const res = await fetch(`${API_BASE_URL}/products/${id}`);
+  return handleResponse(res);
 };
 
 export const createOrder = async (orderData) => {
-  const response = await fetch(`${API_BASE_URL}/orders`, {
+  const res = await fetch(`${API_BASE_URL}/orders`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: authHeaders(),
     body: JSON.stringify(orderData),
   });
-  if (!response.ok) {
-    throw new Error('Failed to create order');
-  }
-  return response.json();
+  return handleResponse(res);
+};
+
+export const loginUser = async (email, password) => {
+  const res = await fetch(`${API_BASE_URL}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  return handleResponse(res);
+};
+
+export const registerUser = async (name, email, password) => {
+  const res = await fetch(`${API_BASE_URL}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, password }),
+  });
+  return handleResponse(res);
+};
+
+export const fetchMyOrders = async (email) => {
+  const res = await fetch(`${API_BASE_URL}/orders/mine?email=${encodeURIComponent(email)}`, {
+    headers: authHeaders(),
+  });
+  return handleResponse(res);
 };

@@ -1,13 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const orderController = require('../controllers/orderController');
-const { authenticate } = require('../middleware/authenticate');
-const { isAdmin, isCustomer } = require('../middleware/authorize');
+const { authenticate, optionalAuth } = require('../middleware/authenticate');
+const { isAdmin } = require('../middleware/authorize');
 
-// Protected routes - customers can create orders
-router.post('/', authenticate, isCustomer, orderController.createOrder);
+// Guest-friendly: anyone can place an order
+router.post('/', optionalAuth, orderController.createOrder);
 
-// Protected routes - only admins can view all orders
+// Fetch orders by email (used by Orders page)
+router.get('/mine', optionalAuth, orderController.getMyOrders);
+
+// Admin routes
 router.get('/', authenticate, isAdmin, orderController.getAllOrders);
 router.get('/:id', authenticate, orderController.getOrderById);
 router.patch('/:id/status', authenticate, isAdmin, orderController.updateOrderStatus);

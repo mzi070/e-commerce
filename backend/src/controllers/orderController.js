@@ -53,6 +53,21 @@ exports.updateOrderStatus = async (req, res) => {
   }
 };
 
+// Get orders by customer email
+exports.getMyOrders = async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ message: 'Email is required' });
+    const orders = await findAllOrders();
+    const myOrders = orders.filter(
+      o => o.customerEmail?.toLowerCase() === email.toLowerCase()
+    );
+    res.json(myOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // Delete order
 exports.deleteOrder = async (req, res) => {
   try {

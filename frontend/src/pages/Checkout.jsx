@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../hooks/useCart';
 import { processPayment, detectCardType } from '../services/paymentGateway';
+import { createOrder } from '../services/api';
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -171,14 +172,8 @@ const Checkout = () => {
         amount: total,
       });
 
-      console.log('Payment successful:', paymentResult);
-
-      // Generate order ID
-      const simulatedOrderId = 'ORD-' + Date.now().toString(36).toUpperCase();
-      
-      // In a real app, you would send this to your backend:
       const orderData = {
-        orderId: simulatedOrderId,
+        customerEmail: shippingInfo.email,
         items: cart.map(item => ({
           productId: item.id,
           name: item.name,
@@ -196,17 +191,13 @@ const Checkout = () => {
         shipping,
         tax,
         total,
-        timestamp: paymentResult.timestamp,
       };
 
-      console.log('Order created:', orderData);
+      const savedOrder = await createOrder(orderData);
 
-      // Save order to localStorage (in a real app, this would be saved to backend)
-      const existingOrders = JSON.parse(localStorage.getItem('ecommerce_orders') || '[]');
-      existingOrders.push(orderData);
-      localStorage.setItem('ecommerce_orders', JSON.stringify(existingOrders));
+      try { localStorage.setItem('customerEmail', shippingInfo.email); } catch {}
 
-      setOrderId(simulatedOrderId);
+      setOrderId(savedOrder.id || savedOrder.orderId || 'ORD-' + Date.now().toString(36).toUpperCase());
       setOrderComplete(true);
       clearCart();
       
