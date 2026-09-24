@@ -6,6 +6,27 @@ const {
   deleteOrder,
 } = require('../utils/dbHelpers');
 
+// Cancel order (customer-facing, pending only)
+exports.cancelOrder = async (req, res) => {
+  try {
+    const order = await findOrderById(req.params.id);
+    const requesterEmail = req.user?.email || req.body?.email;
+    if (!requesterEmail || order.customerEmail?.toLowerCase() !== requesterEmail.toLowerCase()) {
+      return res.status(403).json({ message: 'Not authorized to cancel this order' });
+    }
+    if (order.status !== 'pending') {
+      return res.status(400).json({ message: 'Only pending orders can be cancelled' });
+    }
+    const updated = await updateOrder(req.params.id, { status: 'cancelled' });
+    res.json(updated);
+  } catch (error) {
+    if (error.message === 'Order not found') {
+      return res.status(404).json({ message: error.message });
+    }
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // Get all orders
 exports.getAllOrders = async (req, res) => {
   try {

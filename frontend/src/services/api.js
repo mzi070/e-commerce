@@ -137,6 +137,22 @@ export const validateCoupon = async (code, subtotal) => {
   return handleResponse(res);
 };
 
+// Order cancellation
+export const cancelOrder = async (orderId, email) => {
+  const res = await fetch(`${API_BASE_URL}/orders/${orderId}/cancel`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify({ email }),
+  });
+  return handleResponse(res);
+};
+
+// Admin users
+export const fetchAdminUsers = async () => {
+  const res = await fetch(`${API_BASE_URL}/auth/users`, { headers: authHeaders() });
+  return handleResponse(res);
+};
+
 // Reviews
 export const fetchProductReviews = async (productId) => {
   const res = await fetch(`${API_BASE_URL}/products/${productId}/reviews`);

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { fetchMyOrders } from '../services/api';
+import { fetchMyOrders, cancelOrder } from '../services/api';
+import { toast } from 'sonner';
 
 const Orders = () => {
   const { isAuthenticated, user } = useAuth();
@@ -13,6 +14,8 @@ const Orders = () => {
     try { return localStorage.getItem('customerEmail') || ''; } catch { return ''; }
   });
   const [hasSearched, setHasSearched] = useState(false);
+  const [cancellingId, setCancellingId] = useState(null);
+  const [confirmCancelId, setConfirmCancelId] = useState(null);
 
   const loadOrders = async (emailToUse) => {
     if (!emailToUse) return;
@@ -36,6 +39,20 @@ const Orders = () => {
       loadOrders(storedEmail);
     }
   }, []);
+
+  const handleCancelOrder = async (orderId) => {
+    setCancellingId(orderId);
+    try {
+      const updated = await cancelOrder(orderId, lookupEmail);
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: updated.status } : o));
+      toast.success('Order cancelled successfully');
+    } catch (err) {
+      toast.error(err.message || 'Failed to cancel order');
+    } finally {
+      setCancellingId(null);
+      setConfirmCancelId(null);
+    }
+  };
 
   const handleLookup = (e) => {
     e.preventDefault();
@@ -122,11 +139,38 @@ const Orders = () => {
                       <h2 className="text-lg font-bold text-gray-900">Order #{order.id}</h2>
                       <p className="text-sm text-gray-600">Placed on {formatDate(order.createdAt)}</p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(order.status)}`}>
                         {order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : 'Pending'}
                       </span>
                       <span className="text-lg font-bold text-primary-600">${order.total?.toFixed(2)}</span>
+                      {order.status === 'pending' && (
+                        confirmCancelId === order.id ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-600">Cancel this order?</span>
+                            <button
+                              onClick={() => handleCancelOrder(order.id)}
+                              disabled={cancellingId === order.id}
+                              className="px-3 py-1 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700 disabled:opacity-50 font-medium"
+                            >
+                              {cancellingId === order.id ? 'Cancelling…' : 'Yes, Cancel'}
+                            </button>
+                            <button
+                              onClick={() => setConfirmCancelId(null)}
+                              className="px-3 py-1 bg-gray-200 text-gray-700 text-xs rounded-lg hover:bg-gray-300 font-medium"
+                            >
+                              No
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmCancelId(order.id)}
+                            className="px-3 py-1 text-xs border border-red-400 text-red-600 rounded-lg hover:bg-red-50 font-medium transition-colors"
+                          >
+                            Cancel Order
+                          </button>
+                        )
+                      )}
                     </div>
                   </div>
                 </div>

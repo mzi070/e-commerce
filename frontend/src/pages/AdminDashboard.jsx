@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import {
   fetchProducts,
   fetchAdminOrders,
+  fetchAdminUsers,
   adminCreateProduct,
   adminUpdateProduct,
   adminDeleteProduct,
@@ -14,6 +15,7 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [showProductModal, setShowProductModal] = useState(false);
@@ -24,9 +26,10 @@ const AdminDashboard = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [productsData, ordersData] = await Promise.all([
+        const [productsData, ordersData, usersData] = await Promise.all([
           fetchProducts(),
           fetchAdminOrders(),
+          fetchAdminUsers(),
         ]);
         setProducts(Array.isArray(productsData) ? productsData : []);
         const normalized = (Array.isArray(ordersData) ? ordersData : []).map(order => ({
@@ -37,6 +40,8 @@ const AdminDashboard = () => {
           date: order.createdAt,
         }));
         setOrders(normalized);
+        const userList = usersData?.data?.users || (Array.isArray(usersData) ? usersData : []);
+        setUsers(userList.map(({ password: _, ...u }) => u));
       } catch (err) {
         toast.error('Failed to load dashboard data');
       } finally {
@@ -50,7 +55,8 @@ const AdminDashboard = () => {
     totalProducts: products.length,
     totalOrders: orders.length,
     totalRevenue: orders.reduce((sum, o) => sum + (o.total || 0), 0),
-  }), [products, orders]);
+    totalUsers: users.length,
+  }), [products, orders, users]);
 
   const handleCreateProduct = async (productData) => {
     try {
@@ -161,7 +167,7 @@ const AdminDashboard = () => {
 
       <div className="container mx-auto px-4 py-8">
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -203,13 +209,27 @@ const AdminDashboard = () => {
               </div>
             </div>
           </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Total Users</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.totalUsers}</p>
+              </div>
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Tabs */}
         <div className="bg-white rounded-lg shadow-md mb-6">
           <div className="border-b border-gray-200">
             <nav className="flex -mb-px">
-              {['overview', 'products', 'orders'].map((tab) => (
+              {['overview', 'products', 'orders', 'users'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -302,6 +322,10 @@ const AdminDashboard = () => {
                 getStatusColor={getStatusColor}
                 formatDate={formatDate}
               />
+            )}
+
+            {activeTab === 'users' && (
+              <UsersManagement users={users} formatDate={formatDate} />
             )}
           </div>
         </div>
@@ -488,6 +512,7 @@ const ProductModal = ({ product, onClose, onSave }) => {
     stock: product?.stock ?? '',
     description: product?.description || '',
     image: product?.image || '',
+    featured: product?.featured || false,
   });
   const [errors, setErrors] = useState({});
 
@@ -510,8 +535,8 @@ const ProductModal = ({ product, onClose, onSave }) => {
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
   };
 
@@ -582,6 +607,18 @@ const ProductModal = ({ product, onClose, onSave }) => {
             {formData.image && <img src={formData.image} alt="Preview" className="mt-2 w-32 h-32 object-cover rounded" />}
           </div>
 
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox" name="featured" id="featured"
+              checked={formData.featured}
+              onChange={handleChange}
+              className="w-4 h-4 accent-primary-600 cursor-pointer"
+            />
+            <label htmlFor="featured" className="text-sm font-medium text-gray-700 cursor-pointer">
+              Featured product (show on home page)
+            </label>
+          </div>
+
           <div className="flex justify-end space-x-3 pt-4">
             <button type="button" onClick={onClose}
               className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">
@@ -597,6 +634,44 @@ const ProductModal = ({ product, onClose, onSave }) => {
     </div>
   );
 };
+
+const UsersManagement = ({ users, formatDate }) => (
+  <div>
+    <h2 className="text-xl font-bold text-gray-900 mb-4">Users Management</h2>
+    {users.length === 0 ? (
+      <p className="text-gray-500 text-sm py-4">No users found.</p>
+    ) : (
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {users.map((u) => (
+              <tr key={u.id} className="hover:bg-gray-50">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{u.name}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{u.email}</td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                    u.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'
+                  }`}>
+                    {u.role}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(u.createdAt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+);
 
 const DeleteConfirmModal = ({ onClose, onConfirm }) => (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

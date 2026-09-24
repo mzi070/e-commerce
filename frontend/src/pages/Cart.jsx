@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../hooks/useCart';
 
 const Cart = () => {
   const { cart, removeFromCart, updateQuantity, clearCart, getCartTotal } = useCart();
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const handleQuantityChange = (itemId, newQuantity) => {
     if (newQuantity < 1) {
@@ -51,6 +52,7 @@ const Cart = () => {
   }
 
   return (
+    <>
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-8">Shopping Cart</h1>
@@ -65,7 +67,7 @@ const Cart = () => {
                   Cart Items ({cart.reduce((sum, item) => sum + item.quantity, 0)})
                 </h2>
                 <button
-                  onClick={clearCart}
+                  onClick={() => setShowClearConfirm(true)}
                   className="text-sm text-red-600 hover:text-red-700 font-medium"
                 >
                   Clear Cart
@@ -205,7 +207,7 @@ const Cart = () => {
               </Link>
 
               <button
-                onClick={clearCart}
+                onClick={() => setShowClearConfirm(true)}
                 className="w-full px-6 py-3 bg-white text-gray-700 font-semibold rounded-lg border-2 border-gray-300 hover:bg-gray-50 transition-colors"
               >
                 Clear Cart
@@ -225,6 +227,30 @@ const Cart = () => {
         </div>
       </div>
     </div>
+
+    {showClearConfirm && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg max-w-sm w-full p-6 shadow-xl">
+          <h3 className="text-lg font-bold text-gray-900 mb-2">Clear Cart?</h3>
+          <p className="text-gray-600 mb-6 text-sm">All items will be removed from your cart. This cannot be undone.</p>
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => setShowClearConfirm(false)}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => { clearCart(); setShowClearConfirm(false); }}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm"
+            >
+              Clear Cart
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
   );
 };
 

@@ -176,6 +176,21 @@ exports.updateProfile = async (req, res) => {
 };
 
 /**
+ * Get all users (admin only)
+ */
+exports.getAllUsers = async (req, res) => {
+  try {
+    const { findAllUsers } = require('../utils/dbHelpers');
+    const users = await findAllUsers();
+    const sanitized = users.map(({ password: _, ...u }) => u);
+    res.json({ success: true, data: { users: sanitized } });
+  } catch (error) {
+    console.error('Get all users error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get users' });
+  }
+};
+
+/**
  * Logout user
  * Note: With JWT, logout is primarily handled on the client side by removing the token
  * This endpoint can be used for logging or token blacklisting in the future

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../hooks/useCart';
+import { useAuth } from '../hooks/useAuth';
 import { processPayment, detectCardType } from '../services/paymentGateway';
 import { createOrder, validateCoupon } from '../services/api';
 import { toast } from 'sonner';
@@ -8,6 +9,7 @@ import { toast } from 'sonner';
 const Checkout = () => {
   const navigate = useNavigate();
   const { cart, getCartSubtotal, calculateShipping, calculateTax, clearCart } = useCart();
+  const { user } = useAuth();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -18,7 +20,7 @@ const Checkout = () => {
   const [shippingInfo, setShippingInfo] = useState({
     firstName: '',
     lastName: '',
-    email: '',
+    email: user?.email || '',
     phone: '',
     address: '',
     city: '',
