@@ -306,6 +306,63 @@ const deleteOrder = async (id) => {
   }
 };
 
+// REVIEWS CRUD Operations
+
+const findReviewsByProductId = async (productId) => {
+  try {
+    const db = await getDB();
+    const reviews = db.data.reviews || [];
+    return reviews.filter(r => r.productId === productId);
+  } catch (error) {
+    console.error('Error finding reviews:', error);
+    throw new Error('Failed to retrieve reviews');
+  }
+};
+
+const findReviewById = async (id) => {
+  try {
+    const db = await getDB();
+    const review = (db.data.reviews || []).find(r => r.id === id);
+    if (!review) throw new Error('Review not found');
+    return review;
+  } catch (error) {
+    throw error;
+  }
+};
+
+const addReview = async (reviewData) => {
+  try {
+    const db = await getDB();
+    if (!db.data.reviews) db.data.reviews = [];
+    const newReview = {
+      id: generateId(),
+      ...reviewData,
+      createdAt: new Date().toISOString(),
+    };
+    db.data.reviews.push(newReview);
+    await db.write();
+    return newReview;
+  } catch (error) {
+    console.error('Error adding review:', error);
+    throw new Error('Failed to add review');
+  }
+};
+
+const deleteReview = async (id) => {
+  try {
+    const db = await getDB();
+    if (!db.data.reviews) db.data.reviews = [];
+    const index = db.data.reviews.findIndex(r => r.id === id);
+    if (index === -1) throw new Error('Review not found');
+    const deleted = db.data.reviews.splice(index, 1)[0];
+    await db.write();
+    return deleted;
+  } catch (error) {
+    console.error('Error deleting review:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   // Products
   findAllProducts,
@@ -326,4 +383,9 @@ module.exports = {
   addOrder,
   updateOrder,
   deleteOrder,
+  // Reviews
+  findReviewsByProductId,
+  findReviewById,
+  addReview,
+  deleteReview,
 };

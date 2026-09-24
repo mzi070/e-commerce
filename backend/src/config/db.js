@@ -28,7 +28,8 @@ const defaultData = {
     }
   ],
   users: [],
-  orders: []
+  orders: [],
+  reviews: []
 };
 
 let db = null;

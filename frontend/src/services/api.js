@@ -126,3 +126,26 @@ export const adminUpdateOrderStatus = async (id, status) => {
   });
   return handleResponse(res);
 };
+
+// Reviews
+export const fetchProductReviews = async (productId) => {
+  const res = await fetch(`${API_BASE_URL}/products/${productId}/reviews`);
+  return handleResponse(res);
+};
+
+export const createReview = async (productId, rating, comment) => {
+  const res = await fetch(`${API_BASE_URL}/products/${productId}/reviews`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ rating, comment }),
+  });
+  return handleResponse(res);
+};
+
+export const deleteReview = async (productId, reviewId) => {
+  const res = await fetch(`${API_BASE_URL}/products/${productId}/reviews/${reviewId}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  return handleResponse(res);
+};
