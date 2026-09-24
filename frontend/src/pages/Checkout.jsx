@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../hooks/useCart';
-import { processPayment, detectCardType } from '../services/paymentGateway';
+import { useAuth } from '../hooks/useAuth';
+import { processPayment, detectCardType, validateCardNumber } from '../services/paymentGateway';
+import { createOrder, validateCoupon } from '../services/api';
+import { toast } from 'sonner';
 
 const Checkout = () => {
   const navigate = useNavigate();
-  const { cart, getCartSubtotal, calculateShipping, calculateTax, getOrderTotal, clearCart } = useCart();
+  const { cart, getCartSubtotal, calculateShipping, calculateTax, clearCart } = useCart();
+  const { user } = useAuth();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -16,7 +20,7 @@ const Checkout = () => {
   const [shippingInfo, setShippingInfo] = useState({
     firstName: '',
     lastName: '',
-    email: '',
+    email: user?.email || '',
     phone: '',
     address: '',
     city: '',
@@ -35,11 +39,25 @@ const Checkout = () => {
 
   const [errors, setErrors] = useState({});
 
+  // Coupon state
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponError, setCouponError] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
+
   // Calculate totals
   const subtotal = getCartSubtotal();
-  const shipping = calculateShipping(subtotal);
+  const shippingBase = calculateShipping(subtotal);
+  const shipping = appliedCoupon?.type === 'shipping' ? 0 : shippingBase;
   const tax = calculateTax(subtotal);
-  const total = getOrderTotal();
+  const couponDiscount = appliedCoupon
+    ? appliedCoupon.type === 'percent'
+      ? subtotal * (appliedCoupon.value / 100)
+      : appliedCoupon.type === 'fixed'
+      ? Math.min(appliedCoupon.value, subtotal)
+      : shippingBase
+    : 0;
+  const total = Math.max(0, subtotal + shipping + tax - (appliedCoupon?.type !== 'shipping' ? couponDiscount : 0));
 
   // Redirect if cart is empty
   React.useEffect(() => {
@@ -72,18 +90,27 @@ const Checkout = () => {
   const validatePayment = () => {
     const newErrors = {};
 
-    if (!paymentInfo.cardNumber.trim()) {
+    const rawCard = paymentInfo.cardNumber.replace(/\s/g, '');
+    if (!rawCard) {
       newErrors.cardNumber = 'Card number is required';
-    } else if (!/^\d{16}$/.test(paymentInfo.cardNumber.replace(/\s/g, ''))) {
-      newErrors.cardNumber = 'Card number must be 16 digits';
+    } else if (!/^\d{13,19}$/.test(rawCard)) {
+      newErrors.cardNumber = 'Please enter a valid card number';
+    } else if (!validateCardNumber(rawCard)) {
+      newErrors.cardNumber = 'Invalid card number';
     }
 
     if (!paymentInfo.cardName.trim()) newErrors.cardName = 'Cardholder name is required';
-    
+
     if (!paymentInfo.expiryDate.trim()) {
       newErrors.expiryDate = 'Expiry date is required';
     } else if (!/^\d{2}\/\d{2}$/.test(paymentInfo.expiryDate)) {
       newErrors.expiryDate = 'Format: MM/YY';
+    } else {
+      const [mm, yy] = paymentInfo.expiryDate.split('/').map(Number);
+      const expiry = new Date(2000 + yy, mm - 1, 1);
+      if (expiry < new Date()) {
+        newErrors.expiryDate = 'Card has expired';
+      }
     }
 
     if (!paymentInfo.cvv.trim()) {
@@ -137,6 +164,31 @@ const Checkout = () => {
     }
   };
 
+  // Apply coupon
+  const handleApplyCoupon = async (e) => {
+    e.preventDefault();
+    if (!couponCode.trim()) return;
+    setCouponLoading(true);
+    setCouponError('');
+    try {
+      const result = await validateCoupon(couponCode.trim(), subtotal);
+      setAppliedCoupon(result.data.coupon);
+      toast.success(`Coupon applied: ${result.data.coupon.description}`);
+      setCouponCode('');
+    } catch (err) {
+      setCouponError(err.message || 'Invalid coupon code');
+      setAppliedCoupon(null);
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponError('');
+    toast.info('Coupon removed');
+  };
+
   // Step navigation
   const handleContinueToPayment = (e) => {
     e.preventDefault();
@@ -171,19 +223,11 @@ const Checkout = () => {
         amount: total,
       });
 
-      console.log('Payment successful:', paymentResult);
-
-      // Generate order ID
-      const simulatedOrderId = 'ORD-' + Date.now().toString(36).toUpperCase();
-      
-      // In a real app, you would send this to your backend:
       const orderData = {
-        orderId: simulatedOrderId,
+        customerEmail: shippingInfo.email,
         items: cart.map(item => ({
-          productId: item.id,
-          name: item.name,
+          id: item.id,
           quantity: item.quantity,
-          price: item.price,
         })),
         shippingInfo,
         payment: {
@@ -192,27 +236,16 @@ const Checkout = () => {
           cardType: paymentResult.cardType,
           amount: paymentResult.amount,
         },
-        subtotal,
-        shipping,
-        tax,
-        total,
-        timestamp: paymentResult.timestamp,
+        couponCode: appliedCoupon?.code || null,
       };
 
-      console.log('Order created:', orderData);
+      const savedOrder = await createOrder(orderData);
 
-      // Save order to localStorage (in a real app, this would be saved to backend)
-      const existingOrders = JSON.parse(localStorage.getItem('ecommerce_orders') || '[]');
-      existingOrders.push(orderData);
-      localStorage.setItem('ecommerce_orders', JSON.stringify(existingOrders));
+      try { localStorage.setItem('customerEmail', shippingInfo.email); } catch {}
 
-      setOrderId(simulatedOrderId);
+      setOrderId(savedOrder.id || savedOrder.orderId || 'ORD-' + Date.now().toString(36).toUpperCase());
       setOrderComplete(true);
       clearCart();
-      
-      // Move to step 3 (confirmation)
-      setCurrentStep(3);
-      window.scrollTo(0, 0);
 
     } catch (error) {
       console.error('Payment failed:', error);
@@ -241,7 +274,7 @@ const Checkout = () => {
             <h1 className="text-3xl font-bold text-gray-900 mb-4">Order Confirmed!</h1>
             <p className="text-lg text-gray-600 mb-2">Thank you for your purchase</p>
             <p className="text-sm text-gray-500 mb-8">
-              A confirmation email has been sent to {shippingInfo.email}
+              Please save your order number for your records.
             </p>
 
             <div className="bg-gray-50 rounded-lg p-6 mb-8">
@@ -287,7 +320,15 @@ const Checkout = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Checkout</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-4">Checkout</h1>
+
+        {/* Demo mode notice — no real payments are processed */}
+        <div className="max-w-4xl mx-auto mb-6 flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">
+          <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+          </svg>
+          <span><strong>Demo mode</strong> — no real payments are processed. Use any test card number shown on the payment step.</span>
+        </div>
 
         {/* Progress Steps */}
         <div className="max-w-4xl mx-auto mb-8">
@@ -642,20 +683,6 @@ const Checkout = () => {
                       </div>
                     </div>
 
-                    {/* Save Card Checkbox */}
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="saveCard"
-                        name="saveCard"
-                        checked={paymentInfo.saveCard}
-                        onChange={handlePaymentChange}
-                        className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                      />
-                      <label htmlFor="saveCard" className="ml-2 text-sm text-gray-700">
-                        Save card for future purchases
-                      </label>
-                    </div>
                   </div>
 
                   {/* Shipping Address Review */}
@@ -732,6 +759,36 @@ const Checkout = () => {
                 ))}
               </div>
 
+              {/* Coupon Code */}
+              <div className="pt-4 border-t">
+                {appliedCoupon ? (
+                  <div className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded-lg">
+                    <div>
+                      <p className="text-sm font-semibold text-green-800">{appliedCoupon.code}</p>
+                      <p className="text-xs text-green-700">{appliedCoupon.description}</p>
+                    </div>
+                    <button onClick={handleRemoveCoupon} className="text-xs text-red-500 hover:text-red-700 font-medium ml-2">
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleApplyCoupon} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={couponCode}
+                      onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError(''); }}
+                      placeholder="Promo code"
+                      className={`flex-1 px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${couponError ? 'border-red-400' : 'border-gray-300'}`}
+                    />
+                    <button type="submit" disabled={couponLoading || !couponCode.trim()}
+                      className="px-3 py-2 bg-gray-800 text-white text-sm font-medium rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                      {couponLoading ? '…' : 'Apply'}
+                    </button>
+                  </form>
+                )}
+                {couponError && <p className="text-red-500 text-xs mt-1">{couponError}</p>}
+              </div>
+
               {/* Totals */}
               <div className="space-y-3 pt-4 border-t">
                 <div className="flex justify-between text-sm text-gray-600">
@@ -752,6 +809,12 @@ const Checkout = () => {
                   <span>Tax (10%)</span>
                   <span className="font-medium">${tax.toFixed(2)}</span>
                 </div>
+                {couponDiscount > 0 && appliedCoupon?.type !== 'shipping' && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Discount ({appliedCoupon.code})</span>
+                    <span className="font-medium">−${couponDiscount.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-lg font-bold text-gray-900 pt-3 border-t">
                   <span>Total</span>
                   <span className="text-primary-600">${total.toFixed(2)}</span>

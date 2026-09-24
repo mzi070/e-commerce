@@ -1,7 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 
 const Footer = () => {
+  const [email, setEmail] = useState('');
+
+  const handleSubscribe = (e) => {
+    e.preventDefault();
+    if (!email.trim() || !/\S+@\S+\.\S+/.test(email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    toast.success(`You're subscribed! Check ${email} for a confirmation.`);
+    setEmail('');
+  };
+
   return (
     <footer className="bg-gray-900 text-gray-300 mt-auto">
       <div className="container mx-auto px-4 py-12">
@@ -62,9 +75,11 @@ const Footer = () => {
           <div>
             <h3 className="text-white font-semibold mb-4">Newsletter</h3>
             <p className="text-sm mb-4">Subscribe to get special offers and updates.</p>
-            <form className="flex">
+            <form onSubmit={handleSubscribe} className="flex">
               <input
                 type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="Your email"
                 className="flex-1 px-3 py-2 text-sm bg-gray-800 text-white rounded-l-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
@@ -79,7 +94,7 @@ const Footer = () => {
         </div>
 
         <div className="border-t border-gray-800 mt-8 pt-8 text-center">
-          <p className="text-sm">&copy; 2025 ShopHub. All rights reserved.</p>
+          <p className="text-sm">&copy; {new Date().getFullYear()} ShopHub. All rights reserved.</p>
         </div>
       </div>
     </footer>

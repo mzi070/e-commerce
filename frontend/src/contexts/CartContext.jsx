@@ -73,10 +73,6 @@ const CartProvider = ({ children }) => {
     setCart([]);
   };
 
-  const getCartTotal = () => {
-    return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
-  };
-
   const getTotalItems = () => {
     return cart.reduce((total, item) => total + item.quantity, 0);
   };
@@ -108,7 +104,6 @@ const CartProvider = ({ children }) => {
         removeFromCart,
         updateQuantity,
         clearCart,
-        getCartTotal,
         getTotalItems,
         getCartSubtotal,
         calculateShipping,

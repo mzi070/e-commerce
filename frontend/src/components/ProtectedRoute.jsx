@@ -1,5 +1,6 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 
 const AccessDenied = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -24,29 +25,14 @@ const AccessDenied = () => (
 );
 
 const ProtectedRoute = ({ children, requireAdmin = false }) => {
-  // Check if user is logged in
-  const token = localStorage.getItem('token');
-  const userStr = localStorage.getItem('user');
-  
-  if (!token) {
-    // Not logged in, redirect to login
+  const { isAuthenticated, isAdmin } = useAuth();
+
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  // If admin access is required, check user role
-  if (requireAdmin) {
-    let user = null;
-    try {
-      user = userStr ? JSON.parse(userStr) : null;
-    } catch (error) {
-      console.error('Error parsing user data:', error);
-      return <Navigate to="/login" replace />;
-    }
-    
-    if (!user || user.role !== 'admin') {
-      // Not an admin, show access denied page
-      return <AccessDenied />;
-    }
+  if (requireAdmin && !isAdmin) {
+    return <AccessDenied />;
   }
 
   return children;

@@ -7,7 +7,7 @@ const { generateToken } = require('../utils/jwt');
  */
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body;
 
     // Validate required fields
     if (!name || !email || !password) {
@@ -15,6 +15,11 @@ exports.register = async (req, res) => {
         success: false,
         message: 'Please provide name, email, and password',
       });
+    }
+
+    const trimmedName = name.trim();
+    if (!trimmedName || trimmedName.length > 100) {
+      return res.status(400).json({ success: false, message: 'name must be 1–100 characters' });
     }
 
     // Validate email format
@@ -46,12 +51,11 @@ exports.register = async (req, res) => {
     // Hash password
     const hashedPassword = await hashPassword(password);
 
-    // Create user (default role is customer unless specified as admin)
     const newUser = await addUser({
-      name,
+      name: trimmedName,
       email: email.toLowerCase(),
       password: hashedPassword,
-      role: role === 'admin' ? 'admin' : 'customer', // Only allow admin if explicitly set
+      role: 'customer',
     });
 
     // Generate token
@@ -154,6 +158,89 @@ exports.getProfile = async (req, res) => {
       message: 'Failed to get user profile',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
+  }
+};
+
+/**
+ * Update user profile (name only)
+ */
+exports.updateProfile = async (req, res) => {
+  try {
+    const { name } = req.body;
+    const trimmedName = name?.trim() || '';
+    if (!trimmedName || trimmedName.length > 100) {
+      return res.status(400).json({ success: false, message: 'name must be 1–100 characters' });
+    }
+    const { updateUser } = require('../utils/dbHelpers');
+    const updated = await updateUser(req.user.id, { name: trimmedName });
+    const { password: _, ...userWithoutPassword } = updated;
+    res.json({ success: true, data: { user: userWithoutPassword } });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ success: false, message: 'Failed to update profile' });
+  }
+};
+
+/**
+ * One-time admin setup — creates the first admin account.
+ * Permanently disabled once any admin exists in the database.
+ */
+exports.setupAdmin = async (req, res) => {
+  try {
+    const { findAllUsers } = require('../utils/dbHelpers');
+    const users = await findAllUsers();
+    if (users.some(u => u.role === 'admin')) {
+      return res.status(403).json({
+        success: false,
+        message: 'Setup already completed — an admin account already exists.',
+      });
+    }
+    const { name, email, password } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ success: false, message: 'name, email, and password are required' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ success: false, message: 'Admin password must be at least 8 characters' });
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ success: false, message: 'Invalid email address' });
+    }
+    const existing = await findUserByEmail(email);
+    if (existing) {
+      return res.status(409).json({ success: false, message: 'A user with this email already exists' });
+    }
+    const hashedPassword = await hashPassword(password);
+    const newAdmin = await addUser({
+      name,
+      email: email.toLowerCase(),
+      password: hashedPassword,
+      role: 'admin',
+    });
+    const { password: _, ...adminWithoutPassword } = newAdmin;
+    res.status(201).json({
+      success: true,
+      message: 'Admin account created successfully.',
+      data: { user: adminWithoutPassword },
+    });
+  } catch (error) {
+    console.error('Setup admin error:', error);
+    res.status(500).json({ success: false, message: 'Failed to create admin account' });
+  }
+};
+
+/**
+ * Get all users (admin only)
+ */
+exports.getAllUsers = async (req, res) => {
+  try {
+    const { findAllUsers } = require('../utils/dbHelpers');
+    const users = await findAllUsers();
+    const sanitized = users.map(({ password: _, ...u }) => u);
+    res.json({ success: true, data: { users: sanitized } });
+  } catch (error) {
+    console.error('Get all users error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get users' });
   }
 };
 
