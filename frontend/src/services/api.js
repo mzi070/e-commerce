@@ -127,6 +127,16 @@ export const adminUpdateOrderStatus = async (id, status) => {
   return handleResponse(res);
 };
 
+// Coupons
+export const validateCoupon = async (code, subtotal) => {
+  const res = await fetch(`${API_BASE_URL}/coupons/validate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, subtotal }),
+  });
+  return handleResponse(res);
+};
+
 // Reviews
 export const fetchProductReviews = async (productId) => {
   const res = await fetch(`${API_BASE_URL}/products/${productId}/reviews`);

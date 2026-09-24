@@ -21,6 +21,7 @@ import Profile from './pages/Profile';
 import Wishlist from './pages/Wishlist';
 import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
+import ScrollToTop from './components/ScrollToTop';
 
 function App() {
   return (
@@ -57,6 +58,7 @@ function App() {
               </Routes>
             </main>
             <Footer />
+            <ScrollToTop />
           </div>
         </CartProvider>
         </WishlistProvider>

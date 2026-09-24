@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../hooks/useCart';
 import { processPayment, detectCardType } from '../services/paymentGateway';
-import { createOrder } from '../services/api';
+import { createOrder, validateCoupon } from '../services/api';
+import { toast } from 'sonner';
 
 const Checkout = () => {
   const navigate = useNavigate();
-  const { cart, getCartSubtotal, calculateShipping, calculateTax, getOrderTotal, clearCart } = useCart();
+  const { cart, getCartSubtotal, calculateShipping, calculateTax, clearCart } = useCart();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -36,11 +37,25 @@ const Checkout = () => {
 
   const [errors, setErrors] = useState({});
 
+  // Coupon state
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponError, setCouponError] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
+
   // Calculate totals
   const subtotal = getCartSubtotal();
-  const shipping = calculateShipping(subtotal);
+  const shippingBase = calculateShipping(subtotal);
+  const shipping = appliedCoupon?.type === 'shipping' ? 0 : shippingBase;
   const tax = calculateTax(subtotal);
-  const total = getOrderTotal();
+  const couponDiscount = appliedCoupon
+    ? appliedCoupon.type === 'percent'
+      ? subtotal * (appliedCoupon.value / 100)
+      : appliedCoupon.type === 'fixed'
+      ? Math.min(appliedCoupon.value, subtotal)
+      : shippingBase
+    : 0;
+  const total = Math.max(0, subtotal + shipping + tax - (appliedCoupon?.type !== 'shipping' ? couponDiscount : 0));
 
   // Redirect if cart is empty
   React.useEffect(() => {
@@ -138,6 +153,31 @@ const Checkout = () => {
     }
   };
 
+  // Apply coupon
+  const handleApplyCoupon = async (e) => {
+    e.preventDefault();
+    if (!couponCode.trim()) return;
+    setCouponLoading(true);
+    setCouponError('');
+    try {
+      const result = await validateCoupon(couponCode.trim(), subtotal);
+      setAppliedCoupon(result.data.coupon);
+      toast.success(`Coupon applied: ${result.data.coupon.description}`);
+      setCouponCode('');
+    } catch (err) {
+      setCouponError(err.message || 'Invalid coupon code');
+      setAppliedCoupon(null);
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponError('');
+    toast.info('Coupon removed');
+  };
+
   // Step navigation
   const handleContinueToPayment = (e) => {
     e.preventDefault();
@@ -190,6 +230,8 @@ const Checkout = () => {
         subtotal,
         shipping,
         tax,
+        discount: couponDiscount,
+        couponCode: appliedCoupon?.code || null,
         total,
       };
 
@@ -723,6 +765,36 @@ const Checkout = () => {
                 ))}
               </div>
 
+              {/* Coupon Code */}
+              <div className="pt-4 border-t">
+                {appliedCoupon ? (
+                  <div className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded-lg">
+                    <div>
+                      <p className="text-sm font-semibold text-green-800">{appliedCoupon.code}</p>
+                      <p className="text-xs text-green-700">{appliedCoupon.description}</p>
+                    </div>
+                    <button onClick={handleRemoveCoupon} className="text-xs text-red-500 hover:text-red-700 font-medium ml-2">
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleApplyCoupon} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={couponCode}
+                      onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError(''); }}
+                      placeholder="Promo code"
+                      className={`flex-1 px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${couponError ? 'border-red-400' : 'border-gray-300'}`}
+                    />
+                    <button type="submit" disabled={couponLoading || !couponCode.trim()}
+                      className="px-3 py-2 bg-gray-800 text-white text-sm font-medium rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                      {couponLoading ? '…' : 'Apply'}
+                    </button>
+                  </form>
+                )}
+                {couponError && <p className="text-red-500 text-xs mt-1">{couponError}</p>}
+              </div>
+
               {/* Totals */}
               <div className="space-y-3 pt-4 border-t">
                 <div className="flex justify-between text-sm text-gray-600">
@@ -743,6 +815,18 @@ const Checkout = () => {
                   <span>Tax (10%)</span>
                   <span className="font-medium">${tax.toFixed(2)}</span>
                 </div>
+                {couponDiscount > 0 && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Discount ({appliedCoupon.code})</span>
+                    <span className="font-medium">−${couponDiscount.toFixed(2)}</span>
+                  </div>
+                )}
+                {appliedCoupon?.type === 'shipping' && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Shipping Discount ({appliedCoupon.code})</span>
+                    <span className="font-medium">−${shippingBase.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-lg font-bold text-gray-900 pt-3 border-t">
                   <span>Total</span>
                   <span className="text-primary-600">${total.toFixed(2)}</span>

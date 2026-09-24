@@ -29,7 +29,14 @@ const defaultData = {
   ],
   users: [],
   orders: [],
-  reviews: []
+  reviews: [],
+  coupons: [
+    { code: 'SAVE10', type: 'percent', value: 10, minOrder: 0, description: '10% off your order' },
+    { code: 'SAVE20', type: 'percent', value: 20, minOrder: 50, description: '20% off orders over $50' },
+    { code: 'WELCOME15', type: 'percent', value: 15, minOrder: 0, description: '15% off — welcome gift' },
+    { code: 'FREESHIP', type: 'shipping', value: 0, minOrder: 0, description: 'Free shipping on any order' },
+    { code: 'SAVE5', type: 'fixed', value: 5, minOrder: 25, description: '$5 off orders over $25' }
+  ]
 };
 
 let db = null;

@@ -44,6 +44,21 @@ const StarRating = ({ value, max = 5, onChange, size = 'md' }) => {
   );
 };
 
+const RECENTLY_VIEWED_KEY = 'ecommerce_recently_viewed';
+
+const getRecentlyViewed = () => {
+  try { return JSON.parse(localStorage.getItem(RECENTLY_VIEWED_KEY) || '[]'); } catch { return []; }
+};
+
+const pushRecentlyViewed = (product) => {
+  try {
+    const current = getRecentlyViewed();
+    const filtered = current.filter(p => p.id !== product.id);
+    const updated = [{ id: product.id, name: product.name, price: product.price, image: product.image, category: product.category, avgRating: product.avgRating, reviewCount: product.reviewCount }, ...filtered].slice(0, 6);
+    localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(updated));
+  } catch {}
+};
+
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -53,6 +68,7 @@ const ProductDetail = () => {
 
   const [product, setProduct] = useState(null);
   const [relatedProducts, setRelatedProducts] = useState([]);
+  const [recentlyViewed, setRecentlyViewed] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [quantity, setQuantity] = useState(1);
@@ -84,6 +100,8 @@ const ProductDetail = () => {
             .filter(p => p.id !== id && p.category === data.category)
             .slice(0, 4)
         );
+        pushRecentlyViewed(data);
+        setRecentlyViewed(getRecentlyViewed().filter(p => p.id !== id).slice(0, 4));
       } catch {
         setError('Product not found');
       } finally {
@@ -422,6 +440,32 @@ const ProductDetail = () => {
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Related Products</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {relatedProducts.map(p => (
+                <Link key={p.id} to={`/products/${p.id}`}
+                  className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                  <img src={p.image} alt={p.name} className="w-full h-48 object-cover hover:scale-105 transition-transform duration-300" />
+                  <div className="p-4">
+                    <span className="text-xs text-primary-600 font-semibold uppercase">{p.category}</span>
+                    <h3 className="text-sm font-semibold text-gray-900 mt-1 line-clamp-2 hover:text-primary-600">{p.name}</h3>
+                    {p.avgRating > 0 && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <StarRating value={Math.round(p.avgRating)} size="sm" />
+                        <span className="text-xs text-gray-500">({p.reviewCount})</span>
+                      </div>
+                    )}
+                    <p className="text-base font-bold text-primary-600 mt-2">${p.price.toFixed(2)}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Recently Viewed */}
+        {recentlyViewed.length > 0 && (
+          <div className="mt-10">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Recently Viewed</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {recentlyViewed.map(p => (
                 <Link key={p.id} to={`/products/${p.id}`}
                   className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow">
                   <img src={p.image} alt={p.name} className="w-full h-48 object-cover hover:scale-105 transition-transform duration-300" />

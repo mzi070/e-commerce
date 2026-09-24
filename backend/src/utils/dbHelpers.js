@@ -363,6 +363,19 @@ const deleteReview = async (id) => {
   }
 };
 
+// COUPONS
+
+const findCouponByCode = async (code) => {
+  try {
+    const db = await getDB();
+    const coupons = db.data.coupons || [];
+    return coupons.find(c => c.code.toUpperCase() === code.toUpperCase()) || null;
+  } catch (error) {
+    console.error('Error finding coupon:', error);
+    throw new Error('Failed to retrieve coupon');
+  }
+};
+
 module.exports = {
   // Products
   findAllProducts,
@@ -388,4 +401,6 @@ module.exports = {
   findReviewById,
   addReview,
   deleteReview,
+  // Coupons
+  findCouponByCode,
 };

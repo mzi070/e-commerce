@@ -32,6 +32,8 @@ const Products = () => {
   const [sortBy, setSortBy] = useState('default');
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '');
   const [priceRange, setPriceRange] = useState({ min: '', max: '' });
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 12;
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -71,10 +73,12 @@ const Products = () => {
       case 'price-low': result.sort((a, b) => a.price - b.price); break;
       case 'price-high': result.sort((a, b) => b.price - a.price); break;
       case 'name': result.sort((a, b) => a.name.localeCompare(b.name)); break;
+      case 'rating': result.sort((a, b) => (b.avgRating || 0) - (a.avgRating || 0)); break;
       default: break;
     }
 
     setFilteredProducts(result);
+    setCurrentPage(1);
   }, [products, selectedCategory, sortBy, searchQuery, priceRange]);
 
   const categories = ['all', ...new Set(products.map(p => p.category))];
@@ -101,6 +105,9 @@ const Products = () => {
   };
 
   const hasActiveFilters = selectedCategory !== 'all' || searchQuery || sortBy !== 'default' || priceRange.min || priceRange.max;
+
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const pageProducts = filteredProducts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -182,6 +189,7 @@ const Products = () => {
                 <option value="price-low">Price: Low to High</option>
                 <option value="price-high">Price: High to Low</option>
                 <option value="name">Name: A to Z</option>
+                <option value="rating">Highest Rated</option>
               </select>
             </div>
           </div>
@@ -230,7 +238,7 @@ const Products = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredProducts.map((product) => (
+            {pageProducts.map((product) => (
               <div key={product.id} className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-all duration-200 flex flex-col">
                 <Link to={`/products/${product.id}`} className="block relative">
                   <img
@@ -283,6 +291,51 @@ const Products = () => {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {!loading && totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-10">
+            <button
+              onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              disabled={currentPage === 1}
+              className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              ← Prev
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+              .reduce((acc, p, idx, arr) => {
+                if (idx > 0 && p - arr[idx - 1] > 1) acc.push('…');
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((p, idx) =>
+                p === '…' ? (
+                  <span key={`ellipsis-${idx}`} className="px-2 text-gray-400">…</span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => { setCurrentPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    className={`w-10 h-10 text-sm font-semibold rounded-lg border transition-colors ${
+                      p === currentPage
+                        ? 'bg-primary-600 text-white border-primary-600'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                )
+              )
+            }
+            <button
+              onClick={() => { setCurrentPage(p => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              disabled={currentPage === totalPages}
+              className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Next →
+            </button>
           </div>
         )}
       </div>
