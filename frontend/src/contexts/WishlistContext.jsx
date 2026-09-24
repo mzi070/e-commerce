@@ -19,6 +19,13 @@ const WishlistProvider = ({ children }) => {
     try { localStorage.setItem(WISHLIST_KEY, JSON.stringify(wishlist)); } catch {}
   }, [wishlist]);
 
+  // Clear wishlist when user logs out
+  useEffect(() => {
+    const handler = () => setWishlist([]);
+    window.addEventListener('user:logout', handler);
+    return () => window.removeEventListener('user:logout', handler);
+  }, []);
+
   const addToWishlist = (product) => {
     setWishlist(prev => {
       if (prev.some(p => p.id === product.id)) return prev;

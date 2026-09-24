@@ -39,6 +39,13 @@ const CartProvider = ({ children }) => {
     saveToLocalStorage(cart);
   }, [cart]);
 
+  // Clear cart when user logs out
+  useEffect(() => {
+    const handler = () => setCart([]);
+    window.addEventListener('user:logout', handler);
+    return () => window.removeEventListener('user:logout', handler);
+  }, []);
+
   const addToCart = (product) => {
     setCart((prevCart) => {
       const existingItem = prevCart.find(item => item.id === product.id);
@@ -82,7 +89,7 @@ const CartProvider = ({ children }) => {
   };
 
   const calculateShipping = (subtotal) => {
-    return subtotal > 50 ? 0 : 10;
+    return subtotal >= 50 ? 0 : 10;
   };
 
   const calculateTax = (subtotal) => {

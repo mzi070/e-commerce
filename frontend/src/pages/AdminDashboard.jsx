@@ -416,10 +416,42 @@ const ProductsManagement = ({ products, onEdit, onDelete, onCreate, getStatusCol
 
 const OrdersManagement = ({ orders, onUpdateStatus, getStatusColor, formatDate }) => {
   const [expandedOrder, setExpandedOrder] = useState(null);
+  const [pendingStatus, setPendingStatus] = useState(null);
+
+  const handleStatusChange = (orderId, currentStatus, newStatus) => {
+    if (newStatus === currentStatus) return;
+    setPendingStatus({ orderId, currentStatus, newStatus });
+  };
+
+  const confirmStatusChange = () => {
+    if (!pendingStatus) return;
+    onUpdateStatus(pendingStatus.orderId, pendingStatus.newStatus);
+    setPendingStatus(null);
+  };
 
   return (
     <div>
       <h2 className="text-xl font-bold text-gray-900 mb-4">Orders Management</h2>
+      {pendingStatus && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Confirm Status Change</h3>
+            <p className="text-gray-600 mb-6">
+              Change order status from <strong>{pendingStatus.currentStatus}</strong> to <strong>{pendingStatus.newStatus}</strong>?
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button onClick={() => setPendingStatus(null)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">
+                Cancel
+              </button>
+              <button onClick={confirmStatusChange}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium">
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {orders.length === 0 ? (
         <p className="text-gray-500 text-sm py-4">No orders yet.</p>
       ) : (
@@ -449,7 +481,7 @@ const OrdersManagement = ({ orders, onUpdateStatus, getStatusColor, formatDate }
                     <td className="px-6 py-4 whitespace-nowrap">
                       <select
                         value={order.status || 'pending'}
-                        onChange={(e) => onUpdateStatus(order.id, e.target.value)}
+                        onChange={(e) => handleStatusChange(order.id, order.status, e.target.value)}
                         className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(order.status)} cursor-pointer`}
                       >
                         <option value="pending">Pending</option>

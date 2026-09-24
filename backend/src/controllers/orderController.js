@@ -63,20 +63,29 @@ exports.getOrderById = async (req, res) => {
 // Create order — recalculates all totals server-side; ignores client-supplied prices
 exports.createOrder = async (req, res) => {
   try {
-    const { customerEmail, items, shippingInfo, payment, couponCode } = req.body;
+    const { items, shippingInfo, payment, couponCode } = req.body;
+    // Authenticated users: email comes from JWT; guests supply it in the body
+    const customerEmail = req.user ? req.user.email : req.body.customerEmail;
     if (!customerEmail || !items?.length) {
       return res.status(400).json({ message: 'customerEmail and items are required' });
     }
+
+    // Dedup items by product ID, summing quantities for duplicates
+    const itemMap = new Map();
+    for (const item of items) {
+      if (!item.id || !Number.isInteger(item.quantity) || item.quantity < 1) {
+        return res.status(400).json({ message: 'Each item needs an id and a positive integer quantity' });
+      }
+      itemMap.set(item.id, (itemMap.get(item.id) || 0) + item.quantity);
+    }
+    const dedupedItems = Array.from(itemMap.entries()).map(([id, quantity]) => ({ id, quantity }));
 
     // Resolve products from DB, check stock, compute subtotal
     let subtotal = 0;
     const resolvedItems = [];
     const productMap = new Map();
 
-    for (const item of items) {
-      if (!item.id || !Number.isInteger(item.quantity) || item.quantity < 1) {
-        return res.status(400).json({ message: 'Each item needs an id and a positive integer quantity' });
-      }
+    for (const item of dedupedItems) {
       let product;
       try {
         product = await findProductById(item.id);

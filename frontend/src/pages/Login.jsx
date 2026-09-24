@@ -7,7 +7,11 @@ import { toast } from 'sonner';
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
+
+  React.useEffect(() => {
+    if (isAuthenticated) navigate(from, { replace: true });
+  }, [isAuthenticated, navigate, from]);
 
   const [form, setForm] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState({});

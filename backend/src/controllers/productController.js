@@ -62,8 +62,14 @@ exports.updateProduct = async (req, res) => {
   try {
     const { name, description, price, category, image, stock, featured } = req.body;
     const updates = {};
-    if (name !== undefined) updates.name = name;
+    if (name !== undefined) {
+      if (!name.trim()) return res.status(400).json({ message: 'name cannot be empty' });
+      updates.name = name.trim();
+    }
     if (description !== undefined) updates.description = description;
+    if (category !== undefined) {
+      if (!category.trim()) return res.status(400).json({ message: 'category cannot be empty' });
+    }
     if (price !== undefined) {
       const numPrice = Number(price);
       if (isNaN(numPrice) || numPrice < 0) {
@@ -71,7 +77,7 @@ exports.updateProduct = async (req, res) => {
       }
       updates.price = numPrice;
     }
-    if (category !== undefined) updates.category = category;
+    if (category !== undefined) updates.category = category.trim();
     if (image !== undefined) {
       if (image && !/^https?:\/\/.+/.test(image)) {
         return res.status(400).json({ message: 'image must be a valid http/https URL' });

@@ -8,7 +8,7 @@ exports.validateCoupon = async (req, res) => {
     }
 
     const coupon = await findCouponByCode(code.trim());
-    if (!coupon) {
+    if (!coupon || coupon.active === false) {
       return res.status(404).json({ success: false, message: 'Invalid coupon code' });
     }
 
