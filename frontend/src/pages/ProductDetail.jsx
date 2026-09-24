@@ -148,8 +148,8 @@ const ProductDetail = () => {
       setReviews(prev => [newReview, ...prev]);
       setProduct(prev => ({
         ...prev,
-        reviewCount: (prev.reviewCount || 0) + 1,
-        avgRating: newReview.avgRating ?? prev.avgRating,
+        avgRating: newReview.productAvgRating ?? prev.avgRating,
+        reviewCount: newReview.productReviewCount ?? (prev.reviewCount || 0) + 1,
       }));
       setReviewRating(0);
       setReviewComment('');
@@ -163,8 +163,13 @@ const ProductDetail = () => {
 
   const handleDeleteReview = async (reviewId) => {
     try {
-      await deleteReview(id, reviewId);
+      const result = await deleteReview(id, reviewId);
       setReviews(prev => prev.filter(r => r.id !== reviewId));
+      setProduct(prev => ({
+        ...prev,
+        avgRating: result.productAvgRating ?? prev.avgRating,
+        reviewCount: result.productReviewCount ?? Math.max(0, (prev.reviewCount || 1) - 1),
+      }));
       toast.success('Review deleted');
     } catch (err) {
       toast.error(err.message || 'Failed to delete review');

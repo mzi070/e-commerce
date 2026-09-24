@@ -7,7 +7,7 @@ const { generateToken } = require('../utils/jwt');
  */
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body;
 
     // Validate required fields
     if (!name || !email || !password) {
@@ -46,12 +46,11 @@ exports.register = async (req, res) => {
     // Hash password
     const hashedPassword = await hashPassword(password);
 
-    // Create user (default role is customer unless specified as admin)
     const newUser = await addUser({
       name,
       email: email.toLowerCase(),
       password: hashedPassword,
-      role: role === 'admin' ? 'admin' : 'customer', // Only allow admin if explicitly set
+      role: 'customer',
     });
 
     // Generate token

@@ -46,13 +46,10 @@ exports.createReview = async (req, res) => {
 
     // Update product average rating and review count
     const allReviews = [...existing, newReview];
-    const avgRating = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
-    await updateProduct(productId, {
-      avgRating: Math.round(avgRating * 10) / 10,
-      reviewCount: allReviews.length,
-    });
+    const newAvg = Math.round((allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length) * 10) / 10;
+    await updateProduct(productId, { avgRating: newAvg, reviewCount: allReviews.length });
 
-    res.status(201).json(newReview);
+    res.status(201).json({ ...newReview, productAvgRating: newAvg, productReviewCount: allReviews.length });
   } catch (error) {
     if (error.message === 'Product not found') {
       return res.status(404).json({ message: error.message });
@@ -74,15 +71,12 @@ exports.deleteReview = async (req, res) => {
 
     // Recalculate product rating
     const remaining = await findReviewsByProductId(productId);
-    const avgRating = remaining.length > 0
-      ? remaining.reduce((sum, r) => sum + r.rating, 0) / remaining.length
+    const newAvg = remaining.length > 0
+      ? Math.round((remaining.reduce((sum, r) => sum + r.rating, 0) / remaining.length) * 10) / 10
       : 0;
-    await updateProduct(productId, {
-      avgRating: Math.round(avgRating * 10) / 10,
-      reviewCount: remaining.length,
-    });
+    await updateProduct(productId, { avgRating: newAvg, reviewCount: remaining.length });
 
-    res.json({ message: 'Review deleted' });
+    res.json({ message: 'Review deleted', productAvgRating: newAvg, productReviewCount: remaining.length });
   } catch (error) {
     if (error.message === 'Review not found') {
       return res.status(404).json({ message: error.message });

@@ -14,7 +14,8 @@ const Home = () => {
     const loadProducts = async () => {
       try {
         const products = await fetchProducts();
-        setFeaturedProducts(products.slice(0, 4));
+        const featured = products.filter(p => p.featured);
+        setFeaturedProducts(featured.length > 0 ? featured.slice(0, 4) : products.slice(0, 4));
       } catch (error) {
         console.error('Failed to load products:', error);
       } finally {
