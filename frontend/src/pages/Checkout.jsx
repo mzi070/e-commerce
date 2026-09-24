@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
-import { processPayment, detectCardType } from '../services/paymentGateway';
+import { processPayment, detectCardType, validateCardNumber } from '../services/paymentGateway';
 import { createOrder, validateCoupon } from '../services/api';
 import { toast } from 'sonner';
 
@@ -90,18 +90,27 @@ const Checkout = () => {
   const validatePayment = () => {
     const newErrors = {};
 
-    if (!paymentInfo.cardNumber.trim()) {
+    const rawCard = paymentInfo.cardNumber.replace(/\s/g, '');
+    if (!rawCard) {
       newErrors.cardNumber = 'Card number is required';
-    } else if (!/^\d{16}$/.test(paymentInfo.cardNumber.replace(/\s/g, ''))) {
-      newErrors.cardNumber = 'Card number must be 16 digits';
+    } else if (!/^\d{13,19}$/.test(rawCard)) {
+      newErrors.cardNumber = 'Please enter a valid card number';
+    } else if (!validateCardNumber(rawCard)) {
+      newErrors.cardNumber = 'Invalid card number';
     }
 
     if (!paymentInfo.cardName.trim()) newErrors.cardName = 'Cardholder name is required';
-    
+
     if (!paymentInfo.expiryDate.trim()) {
       newErrors.expiryDate = 'Expiry date is required';
     } else if (!/^\d{2}\/\d{2}$/.test(paymentInfo.expiryDate)) {
       newErrors.expiryDate = 'Format: MM/YY';
+    } else {
+      const [mm, yy] = paymentInfo.expiryDate.split('/').map(Number);
+      const expiry = new Date(2000 + yy, mm - 1, 1);
+      if (expiry < new Date()) {
+        newErrors.expiryDate = 'Card has expired';
+      }
     }
 
     if (!paymentInfo.cvv.trim()) {
@@ -217,10 +226,8 @@ const Checkout = () => {
       const orderData = {
         customerEmail: shippingInfo.email,
         items: cart.map(item => ({
-          productId: item.id,
-          name: item.name,
+          id: item.id,
           quantity: item.quantity,
-          price: item.price,
         })),
         shippingInfo,
         payment: {
@@ -229,12 +236,7 @@ const Checkout = () => {
           cardType: paymentResult.cardType,
           amount: paymentResult.amount,
         },
-        subtotal,
-        shipping,
-        tax,
-        discount: couponDiscount,
         couponCode: appliedCoupon?.code || null,
-        total,
       };
 
       const savedOrder = await createOrder(orderData);
@@ -244,10 +246,6 @@ const Checkout = () => {
       setOrderId(savedOrder.id || savedOrder.orderId || 'ORD-' + Date.now().toString(36).toUpperCase());
       setOrderComplete(true);
       clearCart();
-      
-      // Move to step 3 (confirmation)
-      setCurrentStep(3);
-      window.scrollTo(0, 0);
 
     } catch (error) {
       console.error('Payment failed:', error);
@@ -276,7 +274,7 @@ const Checkout = () => {
             <h1 className="text-3xl font-bold text-gray-900 mb-4">Order Confirmed!</h1>
             <p className="text-lg text-gray-600 mb-2">Thank you for your purchase</p>
             <p className="text-sm text-gray-500 mb-8">
-              A confirmation email has been sent to {shippingInfo.email}
+              Please save your order number for your records.
             </p>
 
             <div className="bg-gray-50 rounded-lg p-6 mb-8">
@@ -685,20 +683,6 @@ const Checkout = () => {
                       </div>
                     </div>
 
-                    {/* Save Card Checkbox */}
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="saveCard"
-                        name="saveCard"
-                        checked={paymentInfo.saveCard}
-                        onChange={handlePaymentChange}
-                        className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                      />
-                      <label htmlFor="saveCard" className="ml-2 text-sm text-gray-700">
-                        Save card for future purchases
-                      </label>
-                    </div>
                   </div>
 
                   {/* Shipping Address Review */}

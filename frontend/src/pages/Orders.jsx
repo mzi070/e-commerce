@@ -1,49 +1,39 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { fetchMyOrders, cancelOrder } from '../services/api';
 import { toast } from 'sonner';
 
 const Orders = () => {
   const { isAuthenticated, user } = useAuth();
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [email, setEmail] = useState('');
-  const [lookupEmail, setLookupEmail] = useState(() => {
-    try { return localStorage.getItem('customerEmail') || ''; } catch { return ''; }
-  });
-  const [hasSearched, setHasSearched] = useState(false);
   const [cancellingId, setCancellingId] = useState(null);
   const [confirmCancelId, setConfirmCancelId] = useState(null);
 
-  const loadOrders = async (emailToUse) => {
-    if (!emailToUse) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchMyOrders(emailToUse);
-      setOrders(data);
-      setHasSearched(true);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    const storedEmail = lookupEmail || (isAuthenticated ? user?.email : '');
-    if (storedEmail) {
-      setEmail(storedEmail);
-      loadOrders(storedEmail);
-    }
-  }, []);
+    if (!isAuthenticated) return;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await fetchMyOrders();
+        setOrders(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [isAuthenticated]);
 
   const handleCancelOrder = async (orderId) => {
     setCancellingId(orderId);
     try {
-      const updated = await cancelOrder(orderId, lookupEmail);
+      const updated = await cancelOrder(orderId);
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: updated.status } : o));
       toast.success('Order cancelled successfully');
     } catch (err) {
@@ -52,14 +42,6 @@ const Orders = () => {
       setCancellingId(null);
       setConfirmCancelId(null);
     }
-  };
-
-  const handleLookup = (e) => {
-    e.preventDefault();
-    if (!email.trim()) return;
-    try { localStorage.setItem('customerEmail', email.trim()); } catch {}
-    setLookupEmail(email.trim());
-    loadOrders(email.trim());
   };
 
   const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString('en-US', {
@@ -82,37 +64,32 @@ const Orders = () => {
     return steps.indexOf(status);
   };
 
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center bg-white rounded-lg shadow-sm p-10 max-w-sm w-full mx-4">
+          <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Sign in to view orders</h2>
+          <p className="text-gray-500 mb-6 text-sm">Create an account or sign in to track your orders.</p>
+          <div className="space-y-2">
+            <Link to="/login" className="block w-full py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium text-sm">
+              Sign In
+            </Link>
+            <Link to="/register" className="block w-full py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium text-sm">
+              Create Account
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">My Orders</h1>
-
-        {/* Email lookup form */}
-        <div className="bg-white rounded-lg shadow-sm p-5 mb-8">
-          <p className="text-sm text-gray-600 mb-3">Enter the email address used at checkout to view your orders.</p>
-          <form onSubmit={handleLookup} className="flex flex-col sm:flex-row gap-3">
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
-              required
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
-            />
-            <button type="submit" disabled={loading}
-              className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium text-sm disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2">
-              {loading ? (
-                <>
-                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Looking up...
-                </>
-              ) : 'Look Up Orders'}
-            </button>
-          </form>
-        </div>
 
         {loading && (
           <div className="flex justify-center py-12">
@@ -124,13 +101,13 @@ const Orders = () => {
           <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">{error}</div>
         )}
 
-        {!loading && hasSearched && orders.length === 0 && (
+        {!loading && !error && orders.length === 0 && (
           <div className="text-center py-16 bg-white rounded-lg shadow-sm">
             <svg className="w-20 h-20 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">No orders found</h2>
-            <p className="text-gray-500 mb-6">No orders were found for this email address.</p>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">No orders yet</h2>
+            <p className="text-gray-500 mb-6">Your orders will appear here after you make a purchase.</p>
             <Link to="/products" className="inline-block px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium">
               Start Shopping
             </Link>
@@ -216,7 +193,7 @@ const Orders = () => {
                       <div key={index} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
                         <div>
                           <p className="font-medium text-gray-900">{item.name}</p>
-                          <p className="text-sm text-gray-500">Qty: {item.quantity} × ${item.price.toFixed(2)}</p>
+                          <p className="text-sm text-gray-500">Qty: {item.quantity} × ${item.price?.toFixed(2)}</p>
                         </div>
                         <p className="font-semibold text-gray-900">${(item.price * item.quantity).toFixed(2)}</p>
                       </div>
@@ -237,6 +214,12 @@ const Orders = () => {
                     <div className="flex justify-between text-gray-600">
                       <span>Tax</span><span>${order.tax?.toFixed(2)}</span>
                     </div>
+                    {order.discount > 0 && (
+                      <div className="flex justify-between text-green-600">
+                        <span>Discount{order.couponCode ? ` (${order.couponCode})` : ''}</span>
+                        <span>-${order.discount?.toFixed(2)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-base font-bold text-gray-900 pt-1.5 border-t border-gray-200">
                       <span>Total</span>
                       <span className="text-primary-600">${order.total?.toFixed(2)}</span>

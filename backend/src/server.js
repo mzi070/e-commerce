@@ -56,6 +56,22 @@ const couponLimiter = rateLimit({
 });
 app.use('/api/coupons', couponLimiter);
 
+const orderLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, max: 20,
+  message: { message: 'Too many order requests from this IP, please try again later.' },
+  standardHeaders: true, legacyHeaders: false,
+  store: makeLimiterStore(),
+});
+app.use('/api/orders', orderLimiter);
+
+const reviewLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, max: 30,
+  message: { message: 'Too many requests, please try again later.' },
+  standardHeaders: true, legacyHeaders: false,
+  store: makeLimiterStore(),
+});
+app.use('/api/products', reviewLimiter);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

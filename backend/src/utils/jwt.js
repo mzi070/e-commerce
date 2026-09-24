@@ -60,5 +60,4 @@ module.exports = {
   generateToken,
   verifyToken,
   extractToken,
-  JWT_EXPIRES_IN,
 };

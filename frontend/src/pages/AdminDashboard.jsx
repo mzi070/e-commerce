@@ -54,7 +54,7 @@ const AdminDashboard = () => {
   const stats = useMemo(() => ({
     totalProducts: products.length,
     totalOrders: orders.length,
-    totalRevenue: orders.reduce((sum, o) => sum + (o.total || 0), 0),
+    totalRevenue: orders.filter(o => o.status !== 'cancelled').reduce((sum, o) => sum + (o.total || 0), 0),
     totalUsers: users.length,
   }), [products, orders, users]);
 

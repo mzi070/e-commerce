@@ -12,7 +12,7 @@ const simulateNetworkDelay = (min = 1000, max = 3000) => {
 /**
  * Validate card number using Luhn algorithm
  */
-const validateCardNumber = (cardNumber) => {
+export const validateCardNumber = (cardNumber) => {
   const cleaned = cardNumber.replace(/\s/g, '');
   
   if (!/^\d{13,19}$/.test(cleaned)) {

@@ -7,11 +7,11 @@ const { isAdmin } = require('../middleware/authorize');
 // Guest-friendly: anyone can place an order
 router.post('/', optionalAuth, orderController.createOrder);
 
-// Fetch orders by email (used by Orders page)
-router.get('/mine', optionalAuth, orderController.getMyOrders);
+// Requires authentication — email is derived from the verified JWT, not a query param
+router.get('/mine', authenticate, orderController.getMyOrders);
 
-// Customer cancel (pending orders only)
-router.patch('/:id/cancel', optionalAuth, orderController.cancelOrder);
+// Cancel requires authentication so ownership is verified via JWT
+router.patch('/:id/cancel', authenticate, orderController.cancelOrder);
 
 // Admin routes
 router.get('/', authenticate, isAdmin, orderController.getAllOrders);

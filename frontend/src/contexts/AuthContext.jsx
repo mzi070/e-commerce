@@ -1,34 +1,36 @@
-import React, { createContext, useState } from 'react';
+import React, { createContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
 export { AuthContext };
 
+const isTokenExpired = (token) => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+};
+
+const loadStoredAuth = () => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token || isTokenExpired(token)) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      return { user: null, token: null };
+    }
+    const user = localStorage.getItem('user');
+    return { user: user ? JSON.parse(user) : null, token };
+  } catch {
+    return { user: null, token: null };
+  }
+};
+
 const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    try {
-      const u = localStorage.getItem('user');
-      return u ? JSON.parse(u) : null;
-    } catch {
-      return null;
-    }
-  });
-
-  const [token, setToken] = useState(() => {
-    try {
-      return localStorage.getItem('token') || null;
-    } catch {
-      return null;
-    }
-  });
-
-  const login = (userData, authToken) => {
-    setUser(userData);
-    setToken(authToken);
-    try {
-      localStorage.setItem('user', JSON.stringify(userData));
-      localStorage.setItem('token', authToken);
-    } catch {}
-  };
+  const initial = loadStoredAuth();
+  const [user, setUser] = useState(initial.user);
+  const [token, setToken] = useState(initial.token);
 
   const logout = () => {
     setUser(null);
@@ -36,6 +38,21 @@ const AuthProvider = ({ children }) => {
     try {
       localStorage.removeItem('user');
       localStorage.removeItem('token');
+    } catch {}
+  };
+
+  useEffect(() => {
+    const handler = () => logout();
+    window.addEventListener('auth:expired', handler);
+    return () => window.removeEventListener('auth:expired', handler);
+  }, []);
+
+  const login = (userData, authToken) => {
+    setUser(userData);
+    setToken(authToken);
+    try {
+      localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('token', authToken);
     } catch {}
   };
 

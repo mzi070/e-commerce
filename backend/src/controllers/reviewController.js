@@ -22,8 +22,9 @@ exports.createReview = async (req, res) => {
     const { productId } = req.params;
     const { rating, comment } = req.body;
 
-    if (!rating || rating < 1 || rating > 5) {
-      return res.status(400).json({ message: 'Rating must be between 1 and 5' });
+    const parsedRating = parseInt(rating, 10);
+    if (!parsedRating || parsedRating < 1 || parsedRating > 5) {
+      return res.status(400).json({ message: 'Rating must be an integer between 1 and 5' });
     }
     if (!comment || !comment.trim()) {
       return res.status(400).json({ message: 'Comment is required' });
@@ -40,7 +41,7 @@ exports.createReview = async (req, res) => {
       productId,
       userId: req.user.id,
       userName: req.user.name,
-      rating: parseInt(rating),
+      rating: parsedRating,
       comment: comment.trim(),
     });
 
@@ -62,6 +63,11 @@ exports.deleteReview = async (req, res) => {
   try {
     const { productId, reviewId } = req.params;
     const review = await findReviewById(reviewId);
+
+    // Ensure the review actually belongs to this product (prevents cross-product deletion)
+    if (review.productId !== productId) {
+      return res.status(404).json({ message: 'Review not found' });
+    }
 
     if (review.userId !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Not authorized to delete this review' });

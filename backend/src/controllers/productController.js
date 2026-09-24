@@ -36,9 +36,20 @@ exports.createProduct = async (req, res) => {
     if (!name || price == null || !category) {
       return res.status(400).json({ message: 'name, price, and category are required' });
     }
+    const numPrice = Number(price);
+    const numStock = Number(stock ?? 0);
+    if (isNaN(numPrice) || numPrice < 0) {
+      return res.status(400).json({ message: 'price must be a non-negative number' });
+    }
+    if (isNaN(numStock) || numStock < 0 || !Number.isInteger(numStock)) {
+      return res.status(400).json({ message: 'stock must be a non-negative integer' });
+    }
+    if (image && !/^https?:\/\/.+/.test(image)) {
+      return res.status(400).json({ message: 'image must be a valid http/https URL' });
+    }
     const newProduct = await addProduct({
-      name, description, price: Number(price), category,
-      image, stock: Number(stock ?? 0), featured: Boolean(featured),
+      name, description, price: numPrice, category,
+      image, stock: numStock, featured: Boolean(featured),
     });
     res.status(201).json(newProduct);
   } catch (error) {
@@ -53,10 +64,27 @@ exports.updateProduct = async (req, res) => {
     const updates = {};
     if (name !== undefined) updates.name = name;
     if (description !== undefined) updates.description = description;
-    if (price !== undefined) updates.price = Number(price);
+    if (price !== undefined) {
+      const numPrice = Number(price);
+      if (isNaN(numPrice) || numPrice < 0) {
+        return res.status(400).json({ message: 'price must be a non-negative number' });
+      }
+      updates.price = numPrice;
+    }
     if (category !== undefined) updates.category = category;
-    if (image !== undefined) updates.image = image;
-    if (stock !== undefined) updates.stock = Number(stock);
+    if (image !== undefined) {
+      if (image && !/^https?:\/\/.+/.test(image)) {
+        return res.status(400).json({ message: 'image must be a valid http/https URL' });
+      }
+      updates.image = image;
+    }
+    if (stock !== undefined) {
+      const numStock = Number(stock);
+      if (isNaN(numStock) || numStock < 0 || !Number.isInteger(numStock)) {
+        return res.status(400).json({ message: 'stock must be a non-negative integer' });
+      }
+      updates.stock = numStock;
+    }
     if (featured !== undefined) updates.featured = Boolean(featured);
     const product = await updateProduct(req.params.id, updates);
     res.json(product);

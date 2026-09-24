@@ -17,6 +17,11 @@ exports.register = async (req, res) => {
       });
     }
 
+    const trimmedName = name.trim();
+    if (!trimmedName || trimmedName.length > 100) {
+      return res.status(400).json({ success: false, message: 'name must be 1–100 characters' });
+    }
+
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
@@ -47,7 +52,7 @@ exports.register = async (req, res) => {
     const hashedPassword = await hashPassword(password);
 
     const newUser = await addUser({
-      name,
+      name: trimmedName,
       email: email.toLowerCase(),
       password: hashedPassword,
       role: 'customer',
@@ -162,11 +167,12 @@ exports.getProfile = async (req, res) => {
 exports.updateProfile = async (req, res) => {
   try {
     const { name } = req.body;
-    if (!name || !name.trim()) {
-      return res.status(400).json({ success: false, message: 'Name is required' });
+    const trimmedName = name?.trim() || '';
+    if (!trimmedName || trimmedName.length > 100) {
+      return res.status(400).json({ success: false, message: 'name must be 1–100 characters' });
     }
     const { updateUser } = require('../utils/dbHelpers');
-    const updated = await updateUser(req.user.id, { name: name.trim() });
+    const updated = await updateUser(req.user.id, { name: trimmedName });
     const { password: _, ...userWithoutPassword } = updated;
     res.json({ success: true, data: { user: userWithoutPassword } });
   } catch (error) {

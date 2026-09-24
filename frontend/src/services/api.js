@@ -15,7 +15,12 @@ const authHeaders = (extra = {}) => {
 
 const handleResponse = async (res) => {
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || `Request failed (${res.status})`);
+  if (!res.ok) {
+    if (res.status === 401) {
+      window.dispatchEvent(new Event('auth:expired'));
+    }
+    throw new Error(data.message || `Request failed (${res.status})`);
+  }
   return data;
 };
 
@@ -56,8 +61,8 @@ export const registerUser = async (name, email, password) => {
   return handleResponse(res);
 };
 
-export const fetchMyOrders = async (email) => {
-  const res = await fetch(`${API_BASE_URL}/orders/mine?email=${encodeURIComponent(email)}`, {
+export const fetchMyOrders = async () => {
+  const res = await fetch(`${API_BASE_URL}/orders/mine`, {
     headers: authHeaders(),
   });
   return handleResponse(res);
@@ -137,12 +142,11 @@ export const validateCoupon = async (code, subtotal) => {
   return handleResponse(res);
 };
 
-// Order cancellation
-export const cancelOrder = async (orderId, email) => {
+// Order cancellation — ownership verified via JWT on the server
+export const cancelOrder = async (orderId) => {
   const res = await fetch(`${API_BASE_URL}/orders/${orderId}/cancel`, {
     method: 'PATCH',
     headers: authHeaders(),
-    body: JSON.stringify({ email }),
   });
   return handleResponse(res);
 };
