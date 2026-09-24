@@ -4,6 +4,7 @@ import { Toaster } from 'sonner';
 import AuthProvider from './contexts/AuthContext';
 import CartProvider from './contexts/CartContext';
 import WishlistProvider from './contexts/WishlistContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import Home from './pages/Home';
@@ -25,6 +26,7 @@ import ScrollToTop from './components/ScrollToTop';
 
 function App() {
   return (
+    <ErrorBoundary>
     <Router>
       <AuthProvider>
         <WishlistProvider>
@@ -64,6 +66,7 @@ function App() {
         </WishlistProvider>
       </AuthProvider>
     </Router>
+    </ErrorBoundary>
   );
 }
 

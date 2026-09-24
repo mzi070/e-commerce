@@ -176,6 +176,54 @@ exports.updateProfile = async (req, res) => {
 };
 
 /**
+ * One-time admin setup — creates the first admin account.
+ * Permanently disabled once any admin exists in the database.
+ */
+exports.setupAdmin = async (req, res) => {
+  try {
+    const { findAllUsers } = require('../utils/dbHelpers');
+    const users = await findAllUsers();
+    if (users.some(u => u.role === 'admin')) {
+      return res.status(403).json({
+        success: false,
+        message: 'Setup already completed — an admin account already exists.',
+      });
+    }
+    const { name, email, password } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ success: false, message: 'name, email, and password are required' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ success: false, message: 'Admin password must be at least 8 characters' });
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ success: false, message: 'Invalid email address' });
+    }
+    const existing = await findUserByEmail(email);
+    if (existing) {
+      return res.status(409).json({ success: false, message: 'A user with this email already exists' });
+    }
+    const hashedPassword = await hashPassword(password);
+    const newAdmin = await addUser({
+      name,
+      email: email.toLowerCase(),
+      password: hashedPassword,
+      role: 'admin',
+    });
+    const { password: _, ...adminWithoutPassword } = newAdmin;
+    res.status(201).json({
+      success: true,
+      message: 'Admin account created successfully.',
+      data: { user: adminWithoutPassword },
+    });
+  } catch (error) {
+    console.error('Setup admin error:', error);
+    res.status(500).json({ success: false, message: 'Failed to create admin account' });
+  }
+};
+
+/**
  * Get all users (admin only)
  */
 exports.getAllUsers = async (req, res) => {

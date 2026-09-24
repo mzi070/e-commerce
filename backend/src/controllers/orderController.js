@@ -53,7 +53,18 @@ exports.getOrderById = async (req, res) => {
 // Create new order
 exports.createOrder = async (req, res) => {
   try {
-    const newOrder = await addOrder(req.body);
+    const {
+      customerEmail, items, shippingInfo, payment,
+      subtotal, shipping, tax, discount, couponCode, total,
+    } = req.body;
+    if (!customerEmail || !items?.length) {
+      return res.status(400).json({ message: 'customerEmail and items are required' });
+    }
+    const newOrder = await addOrder({
+      customerEmail, items, shippingInfo, payment,
+      subtotal, shipping, tax, discount, couponCode, total,
+      status: 'pending',
+    });
     res.status(201).json(newOrder);
   } catch (error) {
     res.status(400).json({ message: error.message });

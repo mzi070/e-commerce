@@ -4,6 +4,9 @@ const authController = require('../controllers/authController');
 const { authenticate } = require('../middleware/authenticate');
 const { isAdmin } = require('../middleware/authorize');
 
+// One-time admin setup — disabled automatically once any admin exists
+router.post('/setup-admin', authController.setupAdmin);
+
 // Public routes
 router.post('/register', authController.register);
 router.post('/login', authController.login);

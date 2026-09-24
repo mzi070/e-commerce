@@ -32,7 +32,14 @@ exports.getProductById = async (req, res) => {
 // Create new product
 exports.createProduct = async (req, res) => {
   try {
-    const newProduct = await addProduct(req.body);
+    const { name, description, price, category, image, stock, featured } = req.body;
+    if (!name || price == null || !category) {
+      return res.status(400).json({ message: 'name, price, and category are required' });
+    }
+    const newProduct = await addProduct({
+      name, description, price: Number(price), category,
+      image, stock: Number(stock ?? 0), featured: Boolean(featured),
+    });
     res.status(201).json(newProduct);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -42,7 +49,16 @@ exports.createProduct = async (req, res) => {
 // Update product
 exports.updateProduct = async (req, res) => {
   try {
-    const product = await updateProduct(req.params.id, req.body);
+    const { name, description, price, category, image, stock, featured } = req.body;
+    const updates = {};
+    if (name !== undefined) updates.name = name;
+    if (description !== undefined) updates.description = description;
+    if (price !== undefined) updates.price = Number(price);
+    if (category !== undefined) updates.category = category;
+    if (image !== undefined) updates.image = image;
+    if (stock !== undefined) updates.stock = Number(stock);
+    if (featured !== undefined) updates.featured = Boolean(featured);
+    const product = await updateProduct(req.params.id, updates);
     res.json(product);
   } catch (error) {
     if (error.message === 'Product not found') {

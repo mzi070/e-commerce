@@ -44,7 +44,14 @@ let db = null;
 // Initialize database
 const initDB = async () => {
   try {
-    const dbPath = path.join(__dirname, '..', '..', 'db.json');
+    const dbPath = process.env.DB_PATH || path.join(__dirname, '..', '..', 'db.json');
+    if (process.env.NODE_ENV === 'production') {
+      console.warn(
+        'WARNING: Using lowdb (JSON file) in production. ' +
+        'Data will be lost on ephemeral filesystems (Railway, Render, Heroku). ' +
+        'Set DB_PATH to a persistent volume path, or migrate to a real database.'
+      );
+    }
     db = await JSONFilePreset(dbPath, defaultData);
     console.log('Database initialized successfully');
     return db;
