@@ -28,11 +28,11 @@ const Products = () => {
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [sortBy, setSortBy] = useState('default');
+  const [selectedCategory, setSelectedCategory] = useState(() => searchParams.get('cat') || 'all');
+  const [sortBy, setSortBy] = useState(() => searchParams.get('sort') || 'default');
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '');
-  const [priceRange, setPriceRange] = useState({ min: '', max: '' });
-  const [currentPage, setCurrentPage] = useState(1);
+  const [priceRange, setPriceRange] = useState(() => ({ min: searchParams.get('minPrice') || '', max: searchParams.get('maxPrice') || '' }));
+  const [currentPage, setCurrentPage] = useState(() => parseInt(searchParams.get('page') || '1', 10));
   const ITEMS_PER_PAGE = 12;
 
   useEffect(() => {
@@ -49,6 +49,18 @@ const Products = () => {
     };
     loadProducts();
   }, []);
+
+  // Sync filter state to URL
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (searchQuery) params.set('q', searchQuery);
+    if (selectedCategory !== 'all') params.set('cat', selectedCategory);
+    if (sortBy !== 'default') params.set('sort', sortBy);
+    if (priceRange.min) params.set('minPrice', priceRange.min);
+    if (priceRange.max) params.set('maxPrice', priceRange.max);
+    if (currentPage > 1) params.set('page', String(currentPage));
+    setSearchParams(params, { replace: true });
+  }, [searchQuery, selectedCategory, sortBy, priceRange, currentPage]);
 
   useEffect(() => {
     let result = [...products];
@@ -244,6 +256,7 @@ const Products = () => {
                   <img
                     src={product.image}
                     alt={product.name}
+                    loading="lazy"
                     className="w-full h-56 object-cover hover:scale-105 transition-transform duration-300"
                   />
                   {product.featured && (

@@ -817,16 +817,10 @@ const Checkout = () => {
                   <span>Tax (10%)</span>
                   <span className="font-medium">${tax.toFixed(2)}</span>
                 </div>
-                {couponDiscount > 0 && (
+                {couponDiscount > 0 && appliedCoupon?.type !== 'shipping' && (
                   <div className="flex justify-between text-sm text-green-600">
                     <span>Discount ({appliedCoupon.code})</span>
                     <span className="font-medium">−${couponDiscount.toFixed(2)}</span>
-                  </div>
-                )}
-                {appliedCoupon?.type === 'shipping' && (
-                  <div className="flex justify-between text-sm text-green-600">
-                    <span>Shipping Discount ({appliedCoupon.code})</span>
-                    <span className="font-medium">−${shippingBase.toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-lg font-bold text-gray-900 pt-3 border-t">

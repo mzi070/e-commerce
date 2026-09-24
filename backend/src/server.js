@@ -22,6 +22,9 @@ app.use(cors({
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });
 app.use('/api/auth', authLimiter);
 
+const couponLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, message: { message: 'Too many coupon attempts, please try again later.' } });
+app.use('/api/coupons', couponLimiter);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

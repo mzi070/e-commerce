@@ -146,7 +146,7 @@ const Home = () => {
               {featuredProducts.map((product) => (
                 <div key={product.id} className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200">
                   <Link to={`/products/${product.id}`} className="block relative">
-                    <img src={product.image} alt={product.name} className="w-full h-48 object-cover hover:scale-105 transition-transform duration-300" />
+                    <img src={product.image} alt={product.name} loading="lazy" className="w-full h-48 object-cover hover:scale-105 transition-transform duration-300" />
                     <button
                       onClick={(e) => { e.preventDefault(); handleToggleWishlist(product); }}
                       className={`absolute top-2 right-2 p-1.5 rounded-full shadow transition-colors ${

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useCart } from '../hooks/useCart';
 
 const Cart = () => {
-  const { cart, removeFromCart, updateQuantity, clearCart, getCartTotal } = useCart();
+  const { cart, removeFromCart, updateQuantity, clearCart, getCartSubtotal } = useCart();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const handleQuantityChange = (itemId, newQuantity) => {
@@ -14,7 +14,7 @@ const Cart = () => {
     }
   };
 
-  const subtotal = getCartTotal();
+  const subtotal = getCartSubtotal();
   const shipping = subtotal > 50 ? 0 : 10;
   const tax = subtotal * 0.1;
   const total = subtotal + shipping + tax;
