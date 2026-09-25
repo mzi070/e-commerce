@@ -15,6 +15,7 @@ const Checkout = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderComplete, setOrderComplete] = useState(false);
   const [orderId, setOrderId] = useState('');
+  const [serverTotal, setServerTotal] = useState(null);
 
   // Form state
   const [shippingInfo, setShippingInfo] = useState({
@@ -107,8 +108,10 @@ const Checkout = () => {
       newErrors.expiryDate = 'Format: MM/YY';
     } else {
       const [mm, yy] = paymentInfo.expiryDate.split('/').map(Number);
-      const expiry = new Date(2000 + yy, mm - 1, 1);
-      if (expiry < new Date()) {
+      const now = new Date();
+      const curYear = now.getFullYear() % 100;
+      const curMonth = now.getMonth() + 1;
+      if (yy < curYear || (yy === curYear && mm < curMonth)) {
         newErrors.expiryDate = 'Card has expired';
       }
     }
@@ -244,6 +247,7 @@ const Checkout = () => {
       try { localStorage.setItem('customerEmail', shippingInfo.email); } catch {}
 
       setOrderId(savedOrder.id || savedOrder.orderId || 'ORD-' + Date.now().toString(36).toUpperCase());
+      setServerTotal(savedOrder.total ?? null);
       setOrderComplete(true);
       clearCart();
 
@@ -285,7 +289,7 @@ const Checkout = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
               <div className="p-4 bg-blue-50 rounded-lg">
                 <div className="text-sm text-gray-600 mb-1">Order Total</div>
-                <div className="text-xl font-bold text-primary-600">${total.toFixed(2)}</div>
+                <div className="text-xl font-bold text-primary-600">${(serverTotal ?? total).toFixed(2)}</div>
               </div>
               <div className="p-4 bg-blue-50 rounded-lg">
                 <div className="text-sm text-gray-600 mb-1">Estimated Delivery</div>

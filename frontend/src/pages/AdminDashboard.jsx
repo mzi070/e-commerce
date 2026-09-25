@@ -15,6 +15,8 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [ordersMeta, setOrdersMeta] = useState({ total: 0, page: 1, totalPages: 1 });
+  const [ordersPage, setOrdersPage] = useState(1);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -28,11 +30,12 @@ const AdminDashboard = () => {
       try {
         const [productsData, ordersData, usersData] = await Promise.all([
           fetchProducts(),
-          fetchAdminOrders(),
+          fetchAdminOrders(ordersPage),
           fetchAdminUsers(),
         ]);
         setProducts(Array.isArray(productsData) ? productsData : []);
-        const normalized = (Array.isArray(ordersData) ? ordersData : []).map(order => ({
+        const rawOrders = ordersData?.data ?? (Array.isArray(ordersData) ? ordersData : []);
+        const normalized = rawOrders.map(order => ({
           ...order,
           customerName: order.shippingInfo
             ? `${order.shippingInfo.firstName || ''} ${order.shippingInfo.lastName || ''}`.trim() || order.customerEmail
@@ -40,6 +43,9 @@ const AdminDashboard = () => {
           date: order.createdAt,
         }));
         setOrders(normalized);
+        if (ordersData?.total != null) {
+          setOrdersMeta({ total: ordersData.total, page: ordersData.page, totalPages: ordersData.totalPages });
+        }
         const userList = usersData?.data?.users || (Array.isArray(usersData) ? usersData : []);
         setUsers(userList.map(({ password: _, ...u }) => u));
       } catch (err) {
@@ -49,14 +55,14 @@ const AdminDashboard = () => {
       }
     };
     loadData();
-  }, []);
+  }, [ordersPage]);
 
   const stats = useMemo(() => ({
     totalProducts: products.length,
-    totalOrders: orders.length,
+    totalOrders: ordersMeta.total || orders.length,
     totalRevenue: orders.filter(o => o.status !== 'cancelled').reduce((sum, o) => sum + (o.total || 0), 0),
     totalUsers: users.length,
-  }), [products, orders, users]);
+  }), [products, orders, ordersMeta, users]);
 
   const handleCreateProduct = async (productData) => {
     try {
@@ -318,6 +324,8 @@ const AdminDashboard = () => {
             {activeTab === 'orders' && (
               <OrdersManagement
                 orders={orders}
+                ordersMeta={ordersMeta}
+                onPageChange={setOrdersPage}
                 onUpdateStatus={handleUpdateOrderStatus}
                 getStatusColor={getStatusColor}
                 formatDate={formatDate}
@@ -414,12 +422,49 @@ const ProductsManagement = ({ products, onEdit, onDelete, onCreate, getStatusCol
   </div>
 );
 
-const OrdersManagement = ({ orders, onUpdateStatus, getStatusColor, formatDate }) => {
+const OrdersManagement = ({ orders, ordersMeta, onPageChange, onUpdateStatus, getStatusColor, formatDate }) => {
   const [expandedOrder, setExpandedOrder] = useState(null);
+  const [pendingStatus, setPendingStatus] = useState(null);
+
+  const handleStatusChange = (orderId, currentStatus, newStatus) => {
+    if (newStatus === currentStatus) return;
+    setPendingStatus({ orderId, currentStatus, newStatus });
+  };
+
+  const confirmStatusChange = () => {
+    if (!pendingStatus) return;
+    onUpdateStatus(pendingStatus.orderId, pendingStatus.newStatus);
+    setPendingStatus(null);
+  };
 
   return (
     <div>
       <h2 className="text-xl font-bold text-gray-900 mb-4">Orders Management</h2>
+      {pendingStatus && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Confirm Status Change</h3>
+            <p className="text-gray-600 mb-6">
+              Change order status from <strong>{pendingStatus.currentStatus}</strong> to <strong>{pendingStatus.newStatus}</strong>?
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button onClick={() => setPendingStatus(null)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">
+                Cancel
+              </button>
+              <button onClick={confirmStatusChange}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium">
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {ordersMeta.total > 0 && (
+        <p className="text-sm text-gray-500 mb-3">
+          Showing {orders.length} of {ordersMeta.total} orders (page {ordersMeta.page} / {ordersMeta.totalPages})
+        </p>
+      )}
       {orders.length === 0 ? (
         <p className="text-gray-500 text-sm py-4">No orders yet.</p>
       ) : (
@@ -449,7 +494,7 @@ const OrdersManagement = ({ orders, onUpdateStatus, getStatusColor, formatDate }
                     <td className="px-6 py-4 whitespace-nowrap">
                       <select
                         value={order.status || 'pending'}
-                        onChange={(e) => onUpdateStatus(order.id, e.target.value)}
+                        onChange={(e) => handleStatusChange(order.id, order.status, e.target.value)}
                         className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(order.status)} cursor-pointer`}
                       >
                         <option value="pending">Pending</option>
@@ -498,6 +543,25 @@ const OrdersManagement = ({ orders, onUpdateStatus, getStatusColor, formatDate }
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      {ordersMeta.totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <button
+            disabled={ordersMeta.page <= 1}
+            onClick={() => onPageChange(ordersMeta.page - 1)}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+          >
+            Previous
+          </button>
+          <span className="text-sm text-gray-600">Page {ordersMeta.page} of {ordersMeta.totalPages}</span>
+          <button
+            disabled={ordersMeta.page >= ordersMeta.totalPages}
+            onClick={() => onPageChange(ordersMeta.page + 1)}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+          >
+            Next
+          </button>
         </div>
       )}
     </div>

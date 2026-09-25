@@ -39,6 +39,7 @@ const AuthProvider = ({ children }) => {
       localStorage.removeItem('user');
       localStorage.removeItem('token');
     } catch {}
+    window.dispatchEvent(new Event('user:logout'));
   };
 
   useEffect(() => {

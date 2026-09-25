@@ -22,12 +22,21 @@ exports.createReview = async (req, res) => {
     const { productId } = req.params;
     const { rating, comment } = req.body;
 
+    try {
+      await findProductById(productId);
+    } catch {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
     const parsedRating = parseInt(rating, 10);
     if (!parsedRating || parsedRating < 1 || parsedRating > 5) {
       return res.status(400).json({ message: 'Rating must be an integer between 1 and 5' });
     }
     if (!comment || !comment.trim()) {
       return res.status(400).json({ message: 'Comment is required' });
+    }
+    if (comment.trim().length > 1000) {
+      return res.status(400).json({ message: 'Comment cannot exceed 1000 characters' });
     }
 
     // One review per user per product

@@ -4,13 +4,38 @@ import { useAuth } from '../hooks/useAuth';
 import { registerUser } from '../services/api';
 import { toast } from 'sonner';
 
+const Field = ({ id, label, type = 'text', placeholder, autoComplete, form, errors, onChange }) => (
+  <div>
+    <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
+      {label}
+    </label>
+    <input
+      id={id}
+      name={id}
+      type={type}
+      autoComplete={autoComplete}
+      value={form[id]}
+      onChange={onChange}
+      placeholder={placeholder}
+      className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors ${
+        errors[id] ? 'border-red-400 bg-red-50' : 'border-gray-300'
+      }`}
+    />
+    {errors[id] && <p className="mt-1 text-xs text-red-600">{errors[id]}</p>}
+  </div>
+);
+
 const Register = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
 
   const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (isAuthenticated) navigate('/', { replace: true });
+  }, [isAuthenticated, navigate]);
 
   const validate = () => {
     const errs = {};
@@ -48,27 +73,6 @@ const Register = () => {
     }
   };
 
-  const Field = ({ id, label, type = 'text', placeholder, autoComplete }) => (
-    <div>
-      <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
-        {label}
-      </label>
-      <input
-        id={id}
-        name={id}
-        type={type}
-        autoComplete={autoComplete}
-        value={form[id]}
-        onChange={handleChange}
-        placeholder={placeholder}
-        className={`w-full px-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors ${
-          errors[id] ? 'border-red-400 bg-red-50' : 'border-gray-300'
-        }`}
-      />
-      {errors[id] && <p className="mt-1 text-xs text-red-600">{errors[id]}</p>}
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
       <div className="w-full max-w-md">
@@ -85,10 +89,10 @@ const Register = () => {
 
         <div className="bg-white rounded-2xl shadow-md p-8">
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-            <Field id="name" label="Full name" placeholder="Jane Smith" autoComplete="name" />
-            <Field id="email" label="Email address" type="email" placeholder="you@example.com" autoComplete="email" />
-            <Field id="password" label="Password" type="password" placeholder="Min. 6 characters" autoComplete="new-password" />
-            <Field id="confirm" label="Confirm password" type="password" placeholder="Repeat password" autoComplete="new-password" />
+            <Field id="name" label="Full name" placeholder="Jane Smith" autoComplete="name" form={form} errors={errors} onChange={handleChange} />
+            <Field id="email" label="Email address" type="email" placeholder="you@example.com" autoComplete="email" form={form} errors={errors} onChange={handleChange} />
+            <Field id="password" label="Password" type="password" placeholder="Min. 6 characters" autoComplete="new-password" form={form} errors={errors} onChange={handleChange} />
+            <Field id="confirm" label="Confirm password" type="password" placeholder="Repeat password" autoComplete="new-password" form={form} errors={errors} onChange={handleChange} />
 
             <button
               type="submit"
