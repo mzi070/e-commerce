@@ -15,7 +15,7 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [ordersMeta, setOrdersMeta] = useState({ total: 0, page: 1, totalPages: 1 });
+  const [ordersMeta, setOrdersMeta] = useState({ total: 0, page: 1, totalPages: 1, totalRevenue: 0 });
   const [ordersPage, setOrdersPage] = useState(1);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +44,12 @@ const AdminDashboard = () => {
         }));
         setOrders(normalized);
         if (ordersData?.total != null) {
-          setOrdersMeta({ total: ordersData.total, page: ordersData.page, totalPages: ordersData.totalPages });
+          setOrdersMeta({
+            total: ordersData.total,
+            page: ordersData.page,
+            totalPages: ordersData.totalPages,
+            totalRevenue: ordersData.totalRevenue ?? 0,
+          });
         }
         const userList = usersData?.data?.users || (Array.isArray(usersData) ? usersData : []);
         setUsers(userList.map(({ password: _, ...u }) => u));
@@ -60,7 +65,7 @@ const AdminDashboard = () => {
   const stats = useMemo(() => ({
     totalProducts: products.length,
     totalOrders: ordersMeta.total || orders.length,
-    totalRevenue: orders.filter(o => o.status !== 'cancelled').reduce((sum, o) => sum + (o.total || 0), 0),
+    totalRevenue: ordersMeta.totalRevenue || orders.filter(o => o.status !== 'cancelled').reduce((sum, o) => sum + (o.total || 0), 0),
     totalUsers: users.length,
   }), [products, orders, ordersMeta, users]);
 

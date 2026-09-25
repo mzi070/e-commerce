@@ -12,6 +12,14 @@ const { withLock } = require('../utils/mutex');
 
 const VALID_STATUSES = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
 
+const STATUS_TRANSITIONS = {
+  pending:    ['processing', 'cancelled'],
+  processing: ['shipped',    'cancelled'],
+  shipped:    ['delivered',  'cancelled'],
+  delivered:  [],
+  cancelled:  [],
+};
+
 // Cancel order — authenticated customers only; ownership verified via JWT
 exports.cancelOrder = async (req, res) => {
   try {
@@ -47,7 +55,10 @@ exports.getAllOrders = async (req, res) => {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
     const total = sorted.length;
     const data = sorted.slice((page - 1) * limit, page * limit);
-    res.json({ data, total, page, totalPages: Math.ceil(total / limit) });
+    const totalRevenue = all
+      .filter(o => o.status !== 'cancelled')
+      .reduce((sum, o) => sum + (o.total || 0), 0);
+    res.json({ data, total, page, totalPages: Math.ceil(total / limit), totalRevenue });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -93,6 +104,10 @@ exports.createOrder = async (req, res) => {
     const missingFields = requiredShippingFields.filter(f => !shippingInfo[f]?.toString().trim());
     if (missingFields.length) {
       return res.status(400).json({ message: `shippingInfo missing required fields: ${missingFields.join(', ')}` });
+    }
+
+    if (!payment || typeof payment !== 'object' || !payment.transactionId?.toString().trim()) {
+      return res.status(400).json({ message: 'payment.transactionId is required' });
     }
 
     // Dedup items by product ID, summing quantities for duplicates
@@ -198,7 +213,7 @@ exports.createOrder = async (req, res) => {
   }
 };
 
-// Update order status (admin) — allowlist prevents arbitrary status strings
+// Update order status (admin) — state machine prevents invalid transitions
 exports.updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
@@ -207,15 +222,19 @@ exports.updateOrderStatus = async (req, res) => {
         message: `status must be one of: ${VALID_STATUSES.join(', ')}`,
       });
     }
+    const existing = await findOrderById(req.params.id);
+    const allowed = STATUS_TRANSITIONS[existing.status] ?? [];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({
+        message: `Cannot transition order from '${existing.status}' to '${status}'`,
+      });
+    }
     if (status === 'cancelled') {
-      const existing = await findOrderById(req.params.id);
-      if (existing.status !== 'cancelled') {
-        for (const item of existing.items) {
-          try {
-            const product = await findProductById(item.id);
-            await updateProduct(item.id, { stock: product.stock + item.quantity });
-          } catch {}
-        }
+      for (const item of existing.items) {
+        try {
+          const product = await findProductById(item.id);
+          await updateProduct(item.id, { stock: product.stock + item.quantity });
+        } catch {}
       }
     }
     const updated = await updateOrder(req.params.id, { status });
