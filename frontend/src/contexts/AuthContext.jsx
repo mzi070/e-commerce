@@ -42,7 +42,7 @@ const AuthProvider = ({ children }) => {
       localStorage.removeItem('user');
       localStorage.removeItem('token');
       localStorage.removeItem('ecommerce_recently_viewed');
-    } catch {}
+    } catch { /* storage unavailable */ }
     window.dispatchEvent(new Event('user:logout'));
   };
 
@@ -50,6 +50,7 @@ const AuthProvider = ({ children }) => {
     const handler = () => logout();
     window.addEventListener('auth:expired', handler);
     return () => window.removeEventListener('auth:expired', handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const login = (userData, authToken) => {
@@ -58,7 +59,7 @@ const AuthProvider = ({ children }) => {
     try {
       localStorage.setItem('user', JSON.stringify(userData));
       localStorage.setItem('token', authToken);
-    } catch {}
+    } catch { /* storage unavailable */ }
   };
 
   return (

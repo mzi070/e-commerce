@@ -60,6 +60,7 @@ const Products = () => {
     if (priceRange.max) params.set('maxPrice', priceRange.max);
     if (currentPage > 1) params.set('page', String(currentPage));
     setSearchParams(params, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, selectedCategory, sortBy, priceRange, currentPage]);
 
   useEffect(() => {

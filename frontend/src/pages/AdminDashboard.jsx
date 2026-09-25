@@ -52,8 +52,8 @@ const AdminDashboard = () => {
           });
         }
         const userList = usersData?.data?.users || (Array.isArray(usersData) ? usersData : []);
-        setUsers(userList.map(({ password: _, ...u }) => u));
-      } catch (err) {
+        setUsers(userList.map(({ password: _pw, ...u }) => u));
+      } catch {
         toast.error('Failed to load dashboard data');
       } finally {
         setLoading(false);
@@ -362,7 +362,7 @@ const AdminDashboard = () => {
   );
 };
 
-const ProductsManagement = ({ products, onEdit, onDelete, onCreate, getStatusColor }) => (
+const ProductsManagement = ({ products, onEdit, onDelete, onCreate }) => (
   <div>
     <div className="flex justify-between items-center mb-4">
       <h2 className="text-xl font-bold text-gray-900">Products Management</h2>

@@ -16,7 +16,7 @@ const WishlistProvider = ({ children }) => {
   });
 
   useEffect(() => {
-    try { localStorage.setItem(WISHLIST_KEY, JSON.stringify(wishlist)); } catch {}
+    try { localStorage.setItem(WISHLIST_KEY, JSON.stringify(wishlist)); } catch { /* storage unavailable */ }
   }, [wishlist]);
 
   // Clear wishlist when user logs out

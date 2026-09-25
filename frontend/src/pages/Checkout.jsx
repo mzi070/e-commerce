@@ -244,7 +244,7 @@ const Checkout = () => {
 
       const savedOrder = await createOrder(orderData);
 
-      try { localStorage.setItem('customerEmail', shippingInfo.email); } catch {}
+      try { localStorage.setItem('customerEmail', shippingInfo.email); } catch { /* storage unavailable */ }
 
       setOrderId(savedOrder.id || savedOrder.orderId || 'ORD-' + Date.now().toString(36).toUpperCase());
       setServerTotal(savedOrder.total ?? null);

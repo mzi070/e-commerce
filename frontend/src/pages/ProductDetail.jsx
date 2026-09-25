@@ -56,7 +56,7 @@ const pushRecentlyViewed = (product) => {
     const filtered = current.filter(p => p.id !== product.id);
     const updated = [{ id: product.id, name: product.name, price: product.price, image: product.image, category: product.category, avgRating: product.avgRating, reviewCount: product.reviewCount }, ...filtered].slice(0, 6);
     localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(updated));
-  } catch {}
+  } catch { /* storage unavailable */ }
 };
 
 const ProductDetail = () => {

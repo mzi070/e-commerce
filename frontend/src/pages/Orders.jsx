@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { fetchMyOrders, cancelOrder } from '../services/api';
 import { toast } from 'sonner';
 
 const Orders = () => {
-  const { isAuthenticated, user } = useAuth();
-  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
