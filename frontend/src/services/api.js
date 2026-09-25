@@ -1,3 +1,6 @@
+if (import.meta.env.PROD && !import.meta.env.VITE_API_URL) {
+  console.error('FATAL: VITE_API_URL is not set. All API calls will target localhost:3000 which does not exist in production. Set VITE_API_URL to the deployed API URL before building.');
+}
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 const getToken = () => {
@@ -118,8 +121,8 @@ export const adminDeleteProduct = async (id) => {
   return handleResponse(res);
 };
 
-export const fetchAdminOrders = async () => {
-  const res = await fetch(`${API_BASE_URL}/orders`, { headers: authHeaders() });
+export const fetchAdminOrders = async (page = 1, limit = 50) => {
+  const res = await fetch(`${API_BASE_URL}/orders?page=${page}&limit=${limit}`, { headers: authHeaders() });
   return handleResponse(res);
 };
 

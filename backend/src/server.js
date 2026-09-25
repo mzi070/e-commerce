@@ -28,18 +28,25 @@ app.use(cors({
 
 // Rate limiter — use a shared Redis store when REDIS_URL is set so limits
 // are enforced across multiple instances; falls back to in-memory otherwise.
-const makeLimiterStore = () => {
-  if (!process.env.REDIS_URL) return undefined;
-  try {
-    const { RedisStore } = require('rate-limit-redis');
-    const Redis = require('ioredis');
-    const client = new Redis(process.env.REDIS_URL, { lazyConnect: true });
-    return new RedisStore({ sendCommand: (...args) => client.call(...args) });
-  } catch {
-    console.warn('rate-limit-redis unavailable — falling back to in-memory store');
-    return undefined;
-  }
-};
+// The IIFE memoises the result so all four limiters share one Redis connection.
+const makeLimiterStore = (() => {
+  let cachedStore;
+  return () => {
+    if (!process.env.REDIS_URL) return undefined;
+    if (cachedStore !== undefined) return cachedStore;
+    try {
+      const { RedisStore } = require('rate-limit-redis');
+      const Redis = require('ioredis');
+      const client = new Redis(process.env.REDIS_URL, { lazyConnect: true });
+      cachedStore = new RedisStore({ sendCommand: (...args) => client.call(...args) });
+      return cachedStore;
+    } catch {
+      console.warn('rate-limit-redis unavailable — falling back to in-memory store');
+      cachedStore = null;
+      return undefined;
+    }
+  };
+})();
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, max: 20,
@@ -72,8 +79,8 @@ const reviewLimiter = rateLimit({
 });
 app.use('/api/products', reviewLimiter);
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50kb' }));
+app.use(express.urlencoded({ extended: true, limit: '50kb' }));
 
 // Routes
 app.get('/', (req, res) => {

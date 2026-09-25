@@ -1,7 +1,12 @@
 const jwt = require('jsonwebtoken');
 
-if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
-  throw new Error('Fatal: JWT_SECRET environment variable must be set in production.');
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('Fatal: JWT_SECRET environment variable must be set in production.');
+  }
+  if (process.env.JWT_SECRET.length < 32) {
+    throw new Error('Fatal: JWT_SECRET must be at least 32 characters long in production.');
+  }
 }
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-only-secret-do-not-use-in-production';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';

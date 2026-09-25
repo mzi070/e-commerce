@@ -31,11 +31,16 @@ exports.cancelOrder = async (req, res) => {
   }
 };
 
-// Get all orders (admin)
+// Get all orders (admin) — paginated to prevent OOM on large datasets
 exports.getAllOrders = async (req, res) => {
   try {
-    const orders = await findAllOrders();
-    res.json(orders);
+    const all = await findAllOrders();
+    const sorted = all.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+    const total = sorted.length;
+    const data = sorted.slice((page - 1) * limit, page * limit);
+    res.json({ data, total, page, totalPages: Math.ceil(total / limit) });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -68,6 +73,19 @@ exports.createOrder = async (req, res) => {
     const customerEmail = req.user ? req.user.email : req.body.customerEmail;
     if (!customerEmail || !items?.length) {
       return res.status(400).json({ message: 'customerEmail and items are required' });
+    }
+    if (!req.user && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) {
+      return res.status(400).json({ message: 'A valid customerEmail is required' });
+    }
+
+    // Validate shippingInfo required fields
+    if (!shippingInfo || typeof shippingInfo !== 'object') {
+      return res.status(400).json({ message: 'shippingInfo is required' });
+    }
+    const requiredShippingFields = ['firstName', 'lastName', 'address', 'city', 'state', 'zipCode'];
+    const missingFields = requiredShippingFields.filter(f => !shippingInfo[f]?.toString().trim());
+    if (missingFields.length) {
+      return res.status(400).json({ message: `shippingInfo missing required fields: ${missingFields.join(', ')}` });
     }
 
     // Dedup items by product ID, summing quantities for duplicates
@@ -116,6 +134,11 @@ exports.createOrder = async (req, res) => {
     if (couponCode) {
       const coupon = await findCouponByCode(couponCode);
       if (coupon && coupon.active !== false) {
+        if (coupon.minOrder > 0 && subtotal < coupon.minOrder) {
+          return res.status(400).json({
+            message: `Minimum order of $${coupon.minOrder.toFixed(2)} required for this coupon`,
+          });
+        }
         if (coupon.type === 'percent') {
           discount = subtotal * (coupon.value / 100);
         } else if (coupon.type === 'fixed') {

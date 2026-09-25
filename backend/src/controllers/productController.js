@@ -4,6 +4,7 @@ const {
   addProduct,
   updateProduct,
   deleteProduct,
+  deleteReviewsByProductId,
 } = require('../utils/dbHelpers');
 
 // Get all products
@@ -102,10 +103,11 @@ exports.updateProduct = async (req, res) => {
   }
 };
 
-// Delete product
+// Delete product — also removes the product's reviews to avoid orphaned data
 exports.deleteProduct = async (req, res) => {
   try {
     await deleteProduct(req.params.id);
+    await deleteReviewsByProductId(req.params.id);
     res.json({ message: 'Product deleted successfully' });
   } catch (error) {
     if (error.message === 'Product not found') {

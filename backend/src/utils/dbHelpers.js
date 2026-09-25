@@ -361,6 +361,18 @@ const deleteReview = async (id) => {
   }
 };
 
+const deleteReviewsByProductId = async (productId) => {
+  try {
+    const db = await getDB();
+    if (!db.data.reviews) return;
+    db.data.reviews = db.data.reviews.filter(r => r.productId !== productId);
+    await db.write();
+  } catch (error) {
+    console.error('Error deleting reviews for product:', error);
+    throw error;
+  }
+};
+
 // COUPONS
 
 const findCouponByCode = async (code) => {
@@ -399,6 +411,7 @@ module.exports = {
   findReviewById,
   addReview,
   deleteReview,
+  deleteReviewsByProductId,
   // Coupons
   findCouponByCode,
 };

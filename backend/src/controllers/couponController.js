@@ -20,7 +20,17 @@ exports.validateCoupon = async (req, res) => {
       });
     }
 
-    res.json({ success: true, data: { coupon } });
+    // Return only what the UI needs — not the full internal coupon object
+    res.json({
+      success: true,
+      data: {
+        code: coupon.code,
+        type: coupon.type,
+        value: coupon.value,
+        description: coupon.description,
+        minOrder: coupon.minOrder,
+      },
+    });
   } catch (error) {
     console.error('Coupon validation error:', error);
     res.status(500).json({ success: false, message: 'Failed to validate coupon' });
