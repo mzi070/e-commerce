@@ -21,6 +21,7 @@ const generateToken = (user) => {
     id: user.id,
     email: user.email,
     role: user.role,
+    tokenVersion: user.tokenVersion ?? 0,
   };
 
   return jwt.sign(payload, JWT_SECRET, {

@@ -153,6 +153,7 @@ const addUser = async (userData) => {
     const db = await getDB();
     const newUser = {
       id: generateId(),
+      tokenVersion: 0,
       ...userData,
       createdAt: new Date().toISOString()
     };

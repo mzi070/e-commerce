@@ -8,6 +8,7 @@ const {
   findCouponByCode,
   updateProduct,
 } = require('../utils/dbHelpers');
+const { withLock } = require('../utils/mutex');
 
 const VALID_STATUSES = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
 
@@ -104,10 +105,9 @@ exports.createOrder = async (req, res) => {
     }
     const dedupedItems = Array.from(itemMap.entries()).map(([id, quantity]) => ({ id, quantity }));
 
-    // Resolve products from DB, check stock, compute subtotal
+    // Resolve products from DB, compute subtotal (no stock check yet — done atomically below)
     let subtotal = 0;
     const resolvedItems = [];
-    const productMap = new Map();
 
     for (const item of dedupedItems) {
       let product;
@@ -116,12 +116,6 @@ exports.createOrder = async (req, res) => {
       } catch {
         return res.status(400).json({ message: `Product "${item.id}" not found` });
       }
-      if (product.stock < item.quantity) {
-        return res.status(400).json({
-          message: `"${product.name}" only has ${product.stock} unit(s) in stock`,
-        });
-      }
-      productMap.set(product.id, product);
       subtotal += product.price * item.quantity;
       resolvedItems.push({
         id: product.id,
@@ -160,6 +154,30 @@ exports.createOrder = async (req, res) => {
     const tax = subtotal * 0.1;
     const total = Math.max(0, subtotal + shipping + tax - discount);
 
+    // Atomically check stock and reserve — sorted by ID to prevent deadlocks
+    const sortedItems = [...dedupedItems].sort((a, b) => a.id.localeCompare(b.id));
+    const reserved = [];
+    try {
+      for (const item of sortedItems) {
+        await withLock(item.id, async () => {
+          const current = await findProductById(item.id);
+          if (current.stock < item.quantity) {
+            throw new Error(`"${current.name}" only has ${current.stock} unit(s) in stock`);
+          }
+          await updateProduct(item.id, { stock: current.stock - item.quantity });
+          reserved.push({ id: item.id, quantity: item.quantity });
+        });
+      }
+    } catch (stockErr) {
+      for (const r of reserved) {
+        try {
+          const p = await findProductById(r.id);
+          await updateProduct(r.id, { stock: p.stock + r.quantity });
+        } catch {}
+      }
+      return res.status(400).json({ message: stockErr.message });
+    }
+
     const newOrder = await addOrder({
       customerEmail,
       items: resolvedItems,
@@ -173,12 +191,6 @@ exports.createOrder = async (req, res) => {
       total,
       status: 'pending',
     });
-
-    // Decrement stock after successful order creation (Phase 3 adds mutex for atomicity)
-    for (const [id, product] of productMap) {
-      const qty = resolvedItems.find(i => i.id === id).quantity;
-      await updateProduct(id, { stock: Math.max(0, product.stock - qty) });
-    }
 
     res.status(201).json(newOrder);
   } catch (error) {

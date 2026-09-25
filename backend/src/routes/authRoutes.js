@@ -10,7 +10,9 @@ router.post('/setup-admin', authController.setupAdmin);
 // Public routes
 router.post('/register', authController.register);
 router.post('/login', authController.login);
-router.post('/logout', authController.logout);
+
+// Logout requires a valid token so we know which user to revoke
+router.post('/logout', authenticate, authController.logout);
 
 // Protected routes (require authentication)
 router.get('/profile', authenticate, authController.getProfile);

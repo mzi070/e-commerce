@@ -30,6 +30,14 @@ const authenticate = async (req, res, next) => {
       });
     }
 
+    // Reject tokens issued before a logout or password change
+    if (decoded.tokenVersion !== (user.tokenVersion ?? 0)) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token has been revoked. Please log in again.',
+      });
+    }
+
     // Attach user to request
     req.user = {
       id: user.id,
@@ -59,7 +67,7 @@ const optionalAuth = async (req, res, next) => {
       const decoded = verifyToken(token);
       const user = await findUserById(decoded.id);
 
-      if (user) {
+      if (user && decoded.tokenVersion === (user.tokenVersion ?? 0)) {
         req.user = {
           id: user.id,
           email: user.email,

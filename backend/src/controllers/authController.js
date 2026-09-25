@@ -245,20 +245,16 @@ exports.getAllUsers = async (req, res) => {
 };
 
 /**
- * Logout user
- * Note: With JWT, logout is primarily handled on the client side by removing the token
- * This endpoint can be used for logging or token blacklisting in the future
+ * Logout user — increments tokenVersion to revoke all current tokens for this user
  */
 exports.logout = async (req, res) => {
   try {
-    // In a production app, you might want to:
-    // 1. Add token to a blacklist
-    // 2. Log the logout event
-    // 3. Clear any server-side sessions
-
+    const { updateUser, findUserById } = require('../utils/dbHelpers');
+    const user = await findUserById(req.user.id);
+    await updateUser(req.user.id, { tokenVersion: (user.tokenVersion ?? 0) + 1 });
     res.json({
       success: true,
-      message: 'Logout successful. Please remove the token from client storage.',
+      message: 'Logout successful.',
     });
   } catch (error) {
     console.error('Logout error:', error);
@@ -306,13 +302,16 @@ exports.changePassword = async (req, res) => {
     // Hash new password
     const hashedPassword = await hashPassword(newPassword);
 
-    // Update user password
+    // Update password and revoke all existing tokens
     const { updateUser } = require('../utils/dbHelpers');
-    await updateUser(user.id, { password: hashedPassword });
+    await updateUser(user.id, {
+      password: hashedPassword,
+      tokenVersion: (user.tokenVersion ?? 0) + 1,
+    });
 
     res.json({
       success: true,
-      message: 'Password changed successfully',
+      message: 'Password changed successfully. Please log in again.',
     });
   } catch (error) {
     console.error('Change password error:', error);
