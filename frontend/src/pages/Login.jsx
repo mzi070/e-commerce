@@ -9,6 +9,8 @@ const Login = () => {
   const location = useLocation();
   const { login, isAuthenticated } = useAuth();
 
+  const from = location.state?.from?.pathname || '/';
+
   React.useEffect(() => {
     if (isAuthenticated) navigate(from, { replace: true });
   }, [isAuthenticated, navigate, from]);
@@ -16,8 +18,6 @@ const Login = () => {
   const [form, setForm] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-
-  const from = location.state?.from?.pathname || '/';
 
   const validate = () => {
     const errs = {};

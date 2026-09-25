@@ -21,6 +21,12 @@ exports.cancelOrder = async (req, res) => {
     if (order.status !== 'pending') {
       return res.status(400).json({ message: 'Only pending orders can be cancelled' });
     }
+    for (const item of order.items) {
+      try {
+        const product = await findProductById(item.id);
+        await updateProduct(item.id, { stock: product.stock + item.quantity });
+      } catch {}
+    }
     const updated = await updateOrder(req.params.id, { status: 'cancelled' });
     res.json(updated);
   } catch (error) {
@@ -189,8 +195,19 @@ exports.updateOrderStatus = async (req, res) => {
         message: `status must be one of: ${VALID_STATUSES.join(', ')}`,
       });
     }
-    const order = await updateOrder(req.params.id, { status });
-    res.json(order);
+    if (status === 'cancelled') {
+      const existing = await findOrderById(req.params.id);
+      if (existing.status !== 'cancelled') {
+        for (const item of existing.items) {
+          try {
+            const product = await findProductById(item.id);
+            await updateProduct(item.id, { stock: product.stock + item.quantity });
+          } catch {}
+        }
+      }
+    }
+    const updated = await updateOrder(req.params.id, { status });
+    res.json(updated);
   } catch (error) {
     if (error.message === 'Order not found') {
       return res.status(404).json({ message: error.message });
@@ -216,6 +233,15 @@ exports.getMyOrders = async (req, res) => {
 // Delete order (admin)
 exports.deleteOrder = async (req, res) => {
   try {
+    const order = await findOrderById(req.params.id);
+    if (order.status !== 'cancelled') {
+      for (const item of order.items) {
+        try {
+          const product = await findProductById(item.id);
+          await updateProduct(item.id, { stock: product.stock + item.quantity });
+        } catch {}
+      }
+    }
     await deleteOrder(req.params.id);
     res.json({ message: 'Order deleted successfully' });
   } catch (error) {

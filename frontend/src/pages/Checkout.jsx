@@ -175,8 +175,8 @@ const Checkout = () => {
     setCouponError('');
     try {
       const result = await validateCoupon(couponCode.trim(), subtotal);
-      setAppliedCoupon(result.data.coupon);
-      toast.success(`Coupon applied: ${result.data.coupon.description}`);
+      setAppliedCoupon(result.data);
+      toast.success(`Coupon applied: ${result.data.description}`);
       setCouponCode('');
     } catch (err) {
       setCouponError(err.message || 'Invalid coupon code');
