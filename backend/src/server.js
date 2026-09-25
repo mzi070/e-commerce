@@ -77,7 +77,11 @@ const reviewLimiter = rateLimit({
   standardHeaders: true, legacyHeaders: false,
   store: makeLimiterStore(),
 });
-app.use('/api/products', reviewLimiter);
+// Apply reviewLimiter only to /:id/reviews sub-routes, not to product listing/detail
+app.use('/api/products', (req, res, next) => {
+  if (/\/[^/]+\/reviews/.test(req.path)) return reviewLimiter(req, res, next);
+  next();
+});
 
 app.use(express.json({ limit: '50kb' }));
 app.use(express.urlencoded({ extended: true, limit: '50kb' }));
