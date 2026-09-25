@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect } from 'react';
+import { logoutUser } from '../services/api';
 
 const AuthContext = createContext();
 export { AuthContext };
@@ -33,11 +34,14 @@ const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(initial.token);
 
   const logout = () => {
+    // Revoke the tokenVersion server-side (fire and forget — never blocks UI)
+    logoutUser(token);
     setUser(null);
     setToken(null);
     try {
       localStorage.removeItem('user');
       localStorage.removeItem('token');
+      localStorage.removeItem('ecommerce_recently_viewed');
     } catch {}
     window.dispatchEvent(new Event('user:logout'));
   };

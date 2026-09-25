@@ -145,6 +145,14 @@ export const validateCoupon = async (code, subtotal) => {
   return handleResponse(res);
 };
 
+export const logoutUser = async (token) => {
+  if (!token) return;
+  await fetch(`${API_BASE_URL}/auth/logout`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  }).catch(() => {});
+};
+
 // Order cancellation — ownership verified via JWT on the server
 export const cancelOrder = async (orderId) => {
   const res = await fetch(`${API_BASE_URL}/orders/${orderId}/cancel`, {
